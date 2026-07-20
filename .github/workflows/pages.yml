@@ -1,0 +1,62 @@
+name: Deploy DoBackChess to GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "static/**"
+      - "tests/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "static/**"
+      - "tests/**"
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+      - name: Validate browser modules
+        run: |
+          node --check static/app.js
+          node --check static/config.js
+          node --check static/lib/engine-providers.js
+          node --check static/lib/game-import.js
+          node --check static/lib/profile-store.js
+          node --check static/lib/puzzle-rules.js
+          node --check static/lib/auth-sync.js
+          node --check static/lib/engine-play.js
+          node --check static/lib/chess-report.js
+          node --check static/lib/analysis-board.js
+          node --check static/lib/promotion.js
+          node --check static/lib/board-arrows.js
+          node --check static/lib/brilliancy.js
+          node --check static/lib/masters.js
+          node --check static/vendor/reckless/reckless-engine.js
+          node --check static/vendor/reckless/reckless-worker.js
+          node --test tests/*.test.mjs
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: static
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

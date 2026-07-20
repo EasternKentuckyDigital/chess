@@ -1,0 +1,30 @@
+DoBackChess Source-Available License v1.0
+
+Copyright (c) 2026 Ryland Gross. All rights reserved.
+
+This license applies only to the original DoBackChess website and application code
+in this repository. Third-party components remain governed by their own
+licenses.
+
+Permission is granted to download, copy, and run an unmodified copy of DoBackChess
+for personal, non-commercial use.
+
+You may not:
+
+1. Modify, adapt, translate, or create derivative works of the DoBackChess code.
+2. Sell, rent, sublicense, host for profit, or otherwise use DoBackChess for a
+   commercial purpose without a separate written agreement from the copyright
+   holder.
+3. Redistribute DoBackChess, in whole or in part, except as required to preserve a
+   personal backup copy or as GitHub may technically provide repository forks
+   under its Terms of Service.
+4. Remove copyright, license, attribution, or third-party license notices.
+5. Use DoBackChess trademarks, names, logos, or branding in a way that suggests
+   endorsement or affiliation without permission.
+
+DoBackChess is provided "as is", without warranty of any kind, express or implied,
+including but not limited to warranties of merchantability, fitness for a
+particular purpose, and noninfringement. The copyright holder is not liable for
+any claim, damages, or other liability arising from use of the software.
+
+All rights not expressly granted are reserved.

@@ -1,0 +1,127 @@
+{
+  "generatedAt": "2026-07-19T22:04:28.627Z",
+  "sources": {
+    "evaluations": "https://database.lichess.org/lichess_db_eval.jsonl.zst",
+    "puzzles": "https://database.lichess.org/lichess_db_puzzle.csv.zst",
+    "license": "CC0",
+    "note": "Deterministic leading-file sample, balanced by side to move; no full database download required."
+  },
+  "configuration": {
+    "evalLimit": 25,
+    "evalOffset": 0,
+    "puzzleLimit": 25,
+    "puzzleOffset": 0,
+    "reportLimit": 0,
+    "stockfishDepth": 22,
+    "recklessNodes": 2000000
+  },
+  "engines": {
+    "stockfish": {
+      "name": "Stockfish 18 Lite depth 22",
+      "evaluations": {
+        "positions": 25,
+        "legalRate": 100,
+        "exactTop1Rate": 64,
+        "withinAvailableMultiPvRate": 100,
+        "decisiveScoreSignAgreementRate": 100,
+        "meanAbsoluteCentipawnDelta": 26.16,
+        "bySide": {
+          "white": {
+            "positions": 13,
+            "exactTop1Rate": 61.54
+          },
+          "black": {
+            "positions": 12,
+            "exactTop1Rate": 66.67
+          }
+        },
+        "blackWhiteMaxTrapMatches": 1,
+        "blackChoicesWithinMultiPv": 10,
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 25,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 96,
+        "bySide": {
+          "white": {
+            "positions": 13,
+            "solveRate": 92.31
+          },
+          "black": {
+            "positions": 12,
+            "solveRate": 100
+          }
+        },
+        "specificLabelCoverageRate": 28,
+        "specificLabelPrecisionRate": 100,
+        "officialSpecificThemePositionRecallRate": 77.78,
+        "labelErrors": [],
+        "errors": []
+      }
+    },
+    "reckless": {
+      "name": "Reckless alpha 2,000,000 nodes",
+      "evaluations": {
+        "positions": 25,
+        "legalRate": 100,
+        "exactTop1Rate": 60,
+        "withinAvailableMultiPvRate": 100,
+        "decisiveScoreSignAgreementRate": 100,
+        "meanAbsoluteCentipawnDelta": 23.63,
+        "bySide": {
+          "white": {
+            "positions": 13,
+            "exactTop1Rate": 61.54
+          },
+          "black": {
+            "positions": 12,
+            "exactTop1Rate": 58.33
+          }
+        },
+        "blackWhiteMaxTrapMatches": 1,
+        "blackChoicesWithinMultiPv": 10,
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 25,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 96,
+        "bySide": {
+          "white": {
+            "positions": 13,
+            "solveRate": 92.31
+          },
+          "black": {
+            "positions": 12,
+            "solveRate": 100
+          }
+        },
+        "specificLabelCoverageRate": 28,
+        "specificLabelPrecisionRate": 85.71,
+        "officialSpecificThemePositionRecallRate": 77.78,
+        "labelErrors": [
+          {
+            "id": "000rO",
+            "fen": "3R4/8/8/KB2b3/1p6/1P2k3/3p4/8 b - - 0 58",
+            "predicted": "mate",
+            "predictedThemes": [
+              "mate",
+              "fork"
+            ],
+            "officialThemes": [
+              "crushing",
+              "endgame",
+              "fork",
+              "master",
+              "short"
+            ]
+          }
+        ],
+        "errors": []
+      }
+    }
+  },
+  "functionalFailures": [],
+  "qualityWarnings": []
+}

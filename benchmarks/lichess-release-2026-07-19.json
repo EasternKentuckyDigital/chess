@@ -1,0 +1,112 @@
+{
+  "generatedAt": "2026-07-19T20:00:23.689Z",
+  "sources": {
+    "evaluations": "https://database.lichess.org/lichess_db_eval.jsonl.zst",
+    "puzzles": "https://database.lichess.org/lichess_db_puzzle.csv.zst",
+    "license": "CC0",
+    "note": "Held-out offset-10000 cohorts, balanced 500/500 by side. Stockfish and Chess Report came from the depth-16 run; Reckless came from the matching 400000-node run on the identical records."
+  },
+  "configuration": {
+    "evalLimit": 1000,
+    "evalOffset": 10000,
+    "puzzleLimit": 1000,
+    "puzzleOffset": 10000,
+    "reportLimit": 1000,
+    "stockfishDepth": 16,
+    "recklessNodes": 400000
+  },
+  "engines": {
+    "stockfish": {
+      "name": "Stockfish 18 Lite depth 16",
+      "evaluations": {
+        "positions": 1000,
+        "legalRate": 100,
+        "exactTop1Rate": 70.2,
+        "withinAvailableMultiPvRate": 90.6,
+        "decisiveScoreSignAgreementRate": 95.81,
+        "meanAbsoluteCentipawnDelta": 130.46,
+        "bySide": {
+          "white": { "positions": 500, "exactTop1Rate": 69.4 },
+          "black": { "positions": 500, "exactTop1Rate": 71 }
+        },
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 1000,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 99.1,
+        "bySide": {
+          "white": { "positions": 500, "solveRate": 99.4 },
+          "black": { "positions": 500, "solveRate": 98.8 }
+        },
+        "specificLabelCoverageRate": 51.6,
+        "specificLabelPrecisionRate": 97.87,
+        "officialSpecificThemePositionRecallRate": 87.72,
+        "errors": []
+      }
+    },
+    "reckless": {
+      "name": "Reckless alpha 400,000 nodes",
+      "evaluations": {
+        "positions": 1000,
+        "legalRate": 100,
+        "exactTop1Rate": 72.2,
+        "withinAvailableMultiPvRate": 89.9,
+        "decisiveScoreSignAgreementRate": 94.81,
+        "meanAbsoluteCentipawnDelta": 126.12,
+        "bySide": {
+          "white": { "positions": 500, "exactTop1Rate": 72.2 },
+          "black": { "positions": 500, "exactTop1Rate": 72.2 }
+        },
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 1000,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 99.7,
+        "bySide": {
+          "white": { "positions": 500, "solveRate": 99.6 },
+          "black": { "positions": 500, "solveRate": 99.8 }
+        },
+        "specificLabelCoverageRate": 51.6,
+        "specificLabelPrecisionRate": 97.48,
+        "officialSpecificThemePositionRecallRate": 87.72,
+        "errors": []
+      }
+    }
+  },
+  "report": {
+    "positions": 1000,
+    "reportThresholdCentipawns": 80,
+    "tacticalMistakeDetectionRate": 96,
+    "constrainedPvFindsLichessReplyRate": 99,
+    "endToEndTacticalAgreementRate": 95.8,
+    "meanDetectedCentipawnLoss": 30366.05,
+    "thresholdSensitivity": {
+      "80": {
+        "tacticalMistakeDetectionRate": 96,
+        "endToEndTacticalAgreementRate": 95.8,
+        "byBlunderingSide": {
+          "white": { "detectionRate": 97, "endToEndAgreementRate": 96.6 },
+          "black": { "detectionRate": 95, "endToEndAgreementRate": 95 }
+        }
+      },
+      "90": { "tacticalMistakeDetectionRate": 95.9, "endToEndTacticalAgreementRate": 95.7 },
+      "100": { "tacticalMistakeDetectionRate": 95.9, "endToEndTacticalAgreementRate": 95.7 },
+      "110": { "tacticalMistakeDetectionRate": 95.4, "endToEndTacticalAgreementRate": 95.2 },
+      "120": { "tacticalMistakeDetectionRate": 95.4, "endToEndTacticalAgreementRate": 95.2 }
+    },
+    "byBlunderingSide": {
+      "white": { "positions": 500, "detectionRate": 97, "endToEndAgreementRate": 96.6 },
+      "black": { "positions": 500, "detectionRate": 95, "endToEndAgreementRate": 95 }
+    },
+    "specificLabelCoverageRate": 33.13,
+    "specificLabelPrecisionRate": 99.69,
+    "officialSpecificThemePositionRecallRate": 58.6,
+    "errors": []
+  },
+  "functionalFailures": [],
+  "qualityWarnings": [
+    "Reckless decisive score-sign agreement was 94.81%; its exact Lichess only-move tactical solve rate was 99.7%."
+  ]
+}

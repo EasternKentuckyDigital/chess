@@ -1,0 +1,96 @@
+{
+  "generatedAt": "2026-07-19T18:34:04.597Z",
+  "sources": {
+    "evaluations": "https://database.lichess.org/lichess_db_eval.jsonl.zst",
+    "puzzles": "https://database.lichess.org/lichess_db_puzzle.csv.zst",
+    "license": "CC0",
+    "note": "Deterministic leading-file sample, balanced by side to move; no full database download required. Report motif agreement was rechecked after the one-ply constrained-result perspective fix."
+  },
+  "configuration": {
+    "evalLimit": 1000,
+    "puzzleLimit": 1000,
+    "reportLimit": 1000,
+    "stockfishDepth": 12,
+    "recklessNodes": 200000
+  },
+  "engines": {
+    "stockfish": {
+      "name": "Stockfish 18 Lite depth 12",
+      "evaluations": {
+        "positions": 1000,
+        "legalRate": 100,
+        "exactTop1Rate": 65.9,
+        "withinAvailableMultiPvRate": 90,
+        "decisiveScoreSignAgreementRate": 96.99,
+        "meanAbsoluteCentipawnDelta": 106.92,
+        "bySide": {
+          "white": { "positions": 500, "exactTop1Rate": 67.4 },
+          "black": { "positions": 500, "exactTop1Rate": 64.4 }
+        },
+        "blackWhiteMaxTrapMatches": 12,
+        "blackChoicesWithinMultiPv": 312,
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 1000,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 98.1,
+        "bySide": {
+          "white": { "positions": 500, "solveRate": 98.2 },
+          "black": { "positions": 500, "solveRate": 98 }
+        },
+        "comparableMotifPositions": 824,
+        "coarseMotifAgreementRate": 40.41,
+        "errors": []
+      }
+    },
+    "reckless": {
+      "name": "Reckless alpha 200,000 nodes",
+      "evaluations": {
+        "positions": 1000,
+        "legalRate": 100,
+        "exactTop1Rate": 70.4,
+        "withinAvailableMultiPvRate": 93.4,
+        "decisiveScoreSignAgreementRate": 97.99,
+        "meanAbsoluteCentipawnDelta": 89.22,
+        "bySide": {
+          "white": { "positions": 500, "exactTop1Rate": 74 },
+          "black": { "positions": 500, "exactTop1Rate": 66.8 }
+        },
+        "blackWhiteMaxTrapMatches": 8,
+        "blackChoicesWithinMultiPv": 332,
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 1000,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 99,
+        "bySide": {
+          "white": { "positions": 500, "solveRate": 98.8 },
+          "black": { "positions": 500, "solveRate": 99.2 }
+        },
+        "comparableMotifPositions": 824,
+        "coarseMotifAgreementRate": 40.41,
+        "errors": []
+      }
+    }
+  },
+  "report": {
+    "positions": 1000,
+    "reportThresholdCentipawns": 180,
+    "tacticalMistakeDetectionRate": 91.3,
+    "constrainedPvFindsLichessReplyRate": 97.7,
+    "meanDetectedCentipawnLoss": 31841.96,
+    "byBlunderingSide": {
+      "white": { "positions": 500, "detectionRate": 91.6 },
+      "black": { "positions": 500, "detectionRate": 91 }
+    },
+    "comparableDetectedMotifs": 746,
+    "coarseMotifAgreementRate": 39.95,
+    "errors": []
+  },
+  "functionalFailures": [],
+  "qualityWarnings": [
+    "Chess Report's coarse human-facing motif labels agree with fewer than 70% of comparable Lichess tags; engine detection can still be sound."
+  ]
+}

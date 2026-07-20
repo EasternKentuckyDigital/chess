@@ -1,0 +1,140 @@
+{
+  "generatedAt": "2026-07-19T22:01:14.344Z",
+  "sources": {
+    "evaluations": "https://database.lichess.org/lichess_db_eval.jsonl.zst",
+    "puzzles": "https://database.lichess.org/lichess_db_puzzle.csv.zst",
+    "license": "CC0",
+    "note": "Deterministic leading-file sample, balanced by side to move; no full database download required."
+  },
+  "configuration": {
+    "evalLimit": 50,
+    "evalOffset": 0,
+    "puzzleLimit": 50,
+    "puzzleOffset": 0,
+    "reportLimit": 0,
+    "stockfishDepth": 18,
+    "recklessNodes": 750000
+  },
+  "engines": {
+    "stockfish": {
+      "name": "Stockfish 18 Lite depth 18",
+      "evaluations": {
+        "positions": 50,
+        "legalRate": 100,
+        "exactTop1Rate": 66,
+        "withinAvailableMultiPvRate": 96,
+        "decisiveScoreSignAgreementRate": 100,
+        "meanAbsoluteCentipawnDelta": 64.69,
+        "bySide": {
+          "white": {
+            "positions": 25,
+            "exactTop1Rate": 60
+          },
+          "black": {
+            "positions": 25,
+            "exactTop1Rate": 72
+          }
+        },
+        "blackWhiteMaxTrapMatches": 1,
+        "blackChoicesWithinMultiPv": 20,
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 50,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 98,
+        "bySide": {
+          "white": {
+            "positions": 25,
+            "solveRate": 96
+          },
+          "black": {
+            "positions": 25,
+            "solveRate": 100
+          }
+        },
+        "specificLabelCoverageRate": 48,
+        "specificLabelPrecisionRate": 95.83,
+        "officialSpecificThemePositionRecallRate": 85.19,
+        "labelErrors": [
+          {
+            "id": "001Fg",
+            "fen": "5r1k/pQR3pp/5rp1/3B4/q2n4/7P/P4PP1/5RK1 b - - 4 30",
+            "predicted": "fork",
+            "predictedThemes": [
+              "fork"
+            ],
+            "officialThemes": [
+              "advantage",
+              "middlegame",
+              "veryLong"
+            ]
+          }
+        ],
+        "errors": []
+      }
+    },
+    "reckless": {
+      "name": "Reckless alpha 750,000 nodes",
+      "evaluations": {
+        "positions": 50,
+        "legalRate": 100,
+        "exactTop1Rate": 70,
+        "withinAvailableMultiPvRate": 98,
+        "decisiveScoreSignAgreementRate": 93.75,
+        "meanAbsoluteCentipawnDelta": 59.59,
+        "bySide": {
+          "white": {
+            "positions": 25,
+            "exactTop1Rate": 72
+          },
+          "black": {
+            "positions": 25,
+            "exactTop1Rate": 68
+          }
+        },
+        "blackWhiteMaxTrapMatches": 0,
+        "blackChoicesWithinMultiPv": 21,
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 50,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 100,
+        "bySide": {
+          "white": {
+            "positions": 25,
+            "solveRate": 100
+          },
+          "black": {
+            "positions": 25,
+            "solveRate": 100
+          }
+        },
+        "specificLabelCoverageRate": 48,
+        "specificLabelPrecisionRate": 95.83,
+        "officialSpecificThemePositionRecallRate": 85.19,
+        "labelErrors": [
+          {
+            "id": "001Fg",
+            "fen": "5r1k/pQR3pp/5rp1/3B4/q2n4/7P/P4PP1/5RK1 b - - 4 30",
+            "predicted": "fork",
+            "predictedThemes": [
+              "fork"
+            ],
+            "officialThemes": [
+              "advantage",
+              "middlegame",
+              "veryLong"
+            ]
+          }
+        ],
+        "errors": []
+      }
+    }
+  },
+  "functionalFailures": [],
+  "qualityWarnings": [
+    "reckless agreed with fewer than 95% of decisive Lichess evaluation signs."
+  ]
+}

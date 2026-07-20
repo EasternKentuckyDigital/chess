@@ -1,0 +1,164 @@
+diff --git a/src/threadpool.rs b/src/threadpool.rs
+index 7041fba..32d413f 100644
+--- a/src/threadpool.rs
++++ b/src/threadpool.rs
+@@ -26,6 +26,20 @@ pub struct ThreadPool {
+     pub vector: Vec<ThreadData>,
+ }
+ 
++fn collect_root_moves(board: &Board, root_move_filter: Option<&[String]>) -> Vec<RootMove> {
++    board
++        .generate_all_moves()
++        .iter()
++        .filter_map(|entry| {
++            let allowed = match root_move_filter {
++                Some(filter) => filter.iter().any(|candidate| candidate == &entry.mv.to_uci(board)),
++                None => true,
++            };
++            allowed.then_some(RootMove { mv: entry.mv, ..Default::default() })
++        })
++        .collect()
++}
++
+ impl ThreadPool {
+     pub fn available_threads() -> usize {
+         const MINIMUM_THREADS: usize = 512;
+@@ -81,7 +95,7 @@ impl ThreadPool {
+ 
+     pub fn execute_searches(
+         &mut self, time_manager: TimeManager, report: Report, multi_pv: usize, board: &Board,
+-        shared: &Arc<SharedContext>,
++        shared: &Arc<SharedContext>, root_move_filter: Option<&[String]>,
+     ) {
+         shared.tt.increment_age();
+ 
+@@ -103,8 +117,7 @@ impl ThreadPool {
+             {
+                 let t1 = &mut self.vector[0];
+                 t1.board = (*board).clone();
+-                t1.root_moves =
+-                    t1.board.generate_all_moves().iter().map(|v| RootMove { mv: v.mv, ..Default::default() }).collect();
++                t1.root_moves = collect_root_moves(&t1.board, root_move_filter);
+                 t1.multi_pv = multi_pv;
+                 t1.time_manager = time_manager.clone();
+             }
+@@ -156,8 +169,7 @@ impl ThreadPool {
+             t1.shared.stop_probing_tb.store(false, Ordering::Relaxed);
+ 
+             t1.board = (*board).clone();
+-            t1.root_moves =
+-                t1.board.generate_all_moves().iter().map(|v| RootMove { mv: v.mv, ..Default::default() }).collect();
++            t1.root_moves = collect_root_moves(&t1.board, root_move_filter);
+ 
+             #[cfg(feature = "syzygy")]
+             if t1.board.castling().raw() == 0 && t1.board.occupancies().popcount() <= tb::size() && !t1.board.is_draw(0)
+diff --git a/src/tools/bench.rs b/src/tools/bench.rs
+index 1b3fc9a..d9bbea5 100644
+--- a/src/tools/bench.rs
++++ b/src/tools/bench.rs
+@@ -102,7 +102,7 @@ pub fn bench<const PRETTY: bool>(args: &[&str]) {
+         let board = Board::from_fen(position).unwrap();
+         let time_manager = TimeManager::new(Limits::Depth(depth), 0, 0);
+ 
+-        pool.execute_searches(time_manager, Report::None, 1, &board, &shared);
++        pool.execute_searches(time_manager, Report::None, 1, &board, &shared, None);
+ 
+         nodes += shared.nodes.aggregate();
+ 
+diff --git a/src/tools/speedtest.rs b/src/tools/speedtest.rs
+index 09f3855..7bd9b09 100644
+--- a/src/tools/speedtest.rs
++++ b/src/tools/speedtest.rs
+@@ -93,7 +93,7 @@ pub fn speedtest(args: &[&str]) {
+ 
+         let board = Board::from_fen(position).unwrap();
+         let time_manager = TimeManager::new(Limits::Time(ms_per_position), 0, 0);
+-        pool.execute_searches(time_manager, Report::None, 1, &board, &shared);
++        pool.execute_searches(time_manager, Report::None, 1, &board, &shared, None);
+     }
+     eprintln!();
+ 
+@@ -105,7 +105,7 @@ pub fn speedtest(args: &[&str]) {
+ 
+         let board = Board::from_fen(position).unwrap();
+         let time_manager = TimeManager::new(Limits::Time(ms_per_position), 0, 0);
+-        pool.execute_searches(time_manager, Report::None, 1, &board, &shared);
++        pool.execute_searches(time_manager, Report::None, 1, &board, &shared, None);
+ 
+         nodes += shared.nodes.aggregate();
+     }
+diff --git a/src/uci.rs b/src/uci.rs
+index 614eb1b..765bfcc 100644
+--- a/src/uci.rs
++++ b/src/uci.rs
+@@ -189,7 +189,7 @@ fn go(threads: &mut ThreadPool, settings: &Settings, board: &Board, shared: &Arc
+     let limits = parse_limits(board.side_to_move(), tokens);
+     let time_manager = TimeManager::new(limits, board.fullmove_number(), settings.move_overhead);
+ 
+-    threads.execute_searches(time_manager, settings.report, settings.multi_pv, board, shared);
++    threads.execute_searches(time_manager, settings.report, settings.multi_pv, board, shared, None);
+ 
+     if threads[0].root_moves.is_empty() {
+         println!("bestmove (none)");
+diff --git a/src/wasm.rs b/src/wasm.rs
+index c11fbe0..ba6d452 100644
+--- a/src/wasm.rs
++++ b/src/wasm.rs
+@@ -59,21 +59,53 @@ impl Engine {
+         } else {
+             Limits::Infinite
+         };
+-        self.run_search(limits, multi_pv, on_info);
++        self.run_search(limits, multi_pv, on_info, None);
+     }
+ 
+     pub fn go_movetime(&mut self, ms: u32, multi_pv: u32, on_info: Option<JsFunction>) {
+-        self.run_search(Limits::Time(ms as u64), (multi_pv as usize).max(1), on_info);
++        self.run_search(Limits::Time(ms as u64), (multi_pv as usize).max(1), on_info, None);
++    }
++
++    pub fn go_uci_searchmoves(
++        &mut self, depth: u32, nodes: u32, multi_pv: u32, search_moves: &str, on_info: Option<JsFunction>,
++    ) {
++        let multi_pv = (multi_pv as usize).max(1);
++        let limits = if nodes > 0 {
++            Limits::Nodes(nodes as u64)
++        } else if depth > 0 {
++            Limits::Depth(depth as i32)
++        } else {
++            Limits::Infinite
++        };
++        self.run_search(limits, multi_pv, on_info, Some(search_moves));
++    }
++
++    pub fn go_movetime_searchmoves(
++        &mut self, ms: u32, multi_pv: u32, search_moves: &str, on_info: Option<JsFunction>,
++    ) {
++        self.run_search(Limits::Time(ms as u64), (multi_pv as usize).max(1), on_info, Some(search_moves));
+     }
+ 
+     pub fn take_output(&mut self) -> String {
+         self.threads.vector[0].writer.take()
+     }
+ 
+-    fn run_search(&mut self, limits: Limits, multi_pv: usize, on_info: Option<JsFunction>) {
++    fn run_search(
++        &mut self, limits: Limits, multi_pv: usize, on_info: Option<JsFunction>, search_moves: Option<&str>,
++    ) {
+         crate::thread::WASM_CALLBACK.with(|c| *c.borrow_mut() = on_info);
+         let tm = TimeManager::new(limits, self.board.fullmove_number(), 0);
+-        self.threads.execute_searches(tm, Report::Full, multi_pv, &self.board, &self.shared);
++        let root_move_filter = search_moves.map(|moves| {
++            moves.split_whitespace().map(|mv| mv.to_ascii_lowercase()).collect::<Vec<_>>()
++        });
++        self.threads.execute_searches(
++            tm,
++            Report::Full,
++            multi_pv,
++            &self.board,
++            &self.shared,
++            root_move_filter.as_deref(),
++        );
+         crate::thread::WASM_CALLBACK.with(|c| *c.borrow_mut() = None);
+     }
+ 

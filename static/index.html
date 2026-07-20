@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Train important positions from your own games and games played by leading chess masters.">
+  <title>DoBackChess — learn from games that matter</title>
+  <link rel="stylesheet" href="./styles.css?v=19">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" id="brandHome">DoBackChess</a>
+    <nav class="main-nav" aria-label="Primary navigation">
+      <button id="navHome" class="nav-item active">Home</button>
+      <button id="navMasters" class="nav-item">Masters</button>
+      <button id="navAnalysis" class="nav-item">Analysis</button>
+      <button id="navPlay" class="nav-item">Play</button>
+      <button id="navReport" class="nav-item">Chess report</button>
+      <button id="navTacticsReport" class="nav-item">Tactics report</button>
+      <button id="navAbout" class="nav-item">About</button>
+      <button id="navTraining" class="nav-item hidden">Training</button>
+    </nav>
+    <div class="top-actions">
+      <span class="engine-pill"><span class="engine-dot"></span><span id="engineName">Stockfish loads in your browser</span></span>
+      <button id="settingsButton" class="header-button">Settings</button>
+      <button id="profileButton" class="profile-button"><span id="profileName">Guest</span></button>
+    </div>
+  </header>
+
+  <main>
+    <section class="landing" id="hero">
+      <div class="landing-intro">
+        <span class="eyebrow"><span></span> Personal chess study</span>
+        <h1>Train from your games.</h1>
+        <p>Import a public game history and practice the positions that matter.</p>
+        <form id="importForm" class="import-form">
+          <select id="gameSource" aria-label="Game source"><option value="chesscom">Chess.com</option><option value="lichess">Lichess</option><option value="pgn">PGN / notation</option></select>
+          <label class="username-field"><span id="sourcePrefix">chess.com/</span><input id="username" autocomplete="username" placeholder="username" required minlength="2" maxlength="30"></label>
+          <button class="primary-button" type="submit"><span>Build deck</span></button>
+        </form>
+        <div class="search-meta"><span id="searchScopeText">Every game from the last 7 days or the latest 50, whichever is larger</span><span id="heroError" class="inline-error" role="alert"></span></div>
+      </div>
+
+    </section>
+
+    <section id="mastersPage" class="masters-page hidden">
+      <div class="page-heading"><div><span class="eyebrow"><span></span> Master game study</span><h1>Learn from the strongest players.</h1><p>Search verified Chess.com grandmasters and train from mistakes in their latest 100 public games. Master decks are included throughout the beta.</p></div></div>
+      <section><div class="section-heading"><div><span class="panel-kicker">Featured grandmasters</span><h2>Start with a leading player</h2></div></div><div id="featuredMasters" class="master-grid master-grid-large"></div></section>
+      <section class="gm-directory"><div class="section-heading directory-heading"><div><span class="panel-kicker">Chess.com titled directory</span><h2>All grandmasters</h2></div><label class="gm-search">Search<input id="gmSearch" type="search" placeholder="Player handle" autocomplete="off"></label></div><p id="gmDirectoryStatus" class="directory-status">Loading the grandmaster directory…</p><div id="gmDirectory" class="master-grid master-grid-directory"></div></section>
+    </section>
+
+    <section id="analysisPage" class="analysis-page hidden">
+      <div class="analysis-toolbar analysis-toolbar-primary" aria-label="Analysis board controls"><button id="analysisPgnButton" class="secondary-button">Import PGN</button><button id="analysisResetButton" class="secondary-button">Starting position</button><button id="analysisUndoButton" class="secondary-button">Undo</button><button id="analysisFlipButton" class="secondary-button">Flip</button><button id="analysisEditButton" class="secondary-button">Edit position</button></div>
+      <div class="analysis-workspace">
+        <section class="analysis-board-column"><div class="analysis-board-frame"><div id="analysisEvalBar" class="eval-bar equal" role="meter" aria-label="Position evaluation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><div class="eval-bar-white"></div><span class="eval-bar-label">—</span></div><div id="analysisBoardShell" class="board-shell analysis-board-shell theme-brown"><div id="analysisBoard" class="board analysis-board" aria-label="General analysis chess board"></div><svg id="analysisArrows" class="arrows" viewBox="0 0 800 800" preserveAspectRatio="none" aria-hidden="true"></svg></div></div><div id="analysisBoardError" class="inline-error" role="alert"></div></section>
+        <aside class="analysis-sidebar">
+          <section id="analysisEditor" class="analysis-card hidden"><div class="analysis-card-heading"><span class="panel-kicker">Position editor</span><button id="analysisClearButton" class="text-button">Clear board</button></div><div id="analysisPalette" class="analysis-palette"></div><label>Side to move<select id="analysisTurn"><option value="w">White</option><option value="b">Black</option></select></label><label>FEN<div class="fen-row"><input id="analysisFen" spellcheck="false"><button id="analysisLoadFenButton" class="secondary-button">Set</button></div></label><p>Use the palette and board for visual editing. FEN gives full control of castling and en-passant rights.</p></section>
+          <section class="analysis-card engine-analysis-card"><div class="analysis-card-heading"><span class="panel-kicker">Engine analysis</span><button id="analyzePositionButton" class="primary-button">Start engine</button></div><div class="analysis-evaluation"><strong id="analysisEngineEval">—</strong><span id="analysisEngineResult">Engine is paused.</span></div><div class="engine-line"><span>Best continuation</span><strong id="analysisEngineLine">—</strong></div><label>Promote pawns to<select id="analysisPromotion"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select></label></section>
+          <section class="analysis-card notation-analysis-card"><div class="analysis-card-heading notation-card-heading"><span class="panel-kicker">Move notation</span><button id="analysisAccuracyButton" class="text-button" disabled>Measure accuracy</button></div><div id="analysisAccuracySummary" class="accuracy-summary hidden"></div><div id="analysisAccuracyProgress" class="accuracy-progress hidden"><span></span></div><p id="analysisAccuracyNote" class="accuracy-note">Click any move to revisit that position. Accuracy is measured locally from engine loss.</p><div id="analysisNotation" class="analysis-notation"><p>Play moves or import PGN to build notation.</p></div></section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="playPage" class="play-page hidden">
+      <div class="analysis-toolbar analysis-toolbar-primary play-toolbar" aria-label="Engine game controls"><button id="playNewGame" class="secondary-button">New game</button><button id="playUndoButton" class="secondary-button" disabled>Undo full move</button><button id="playFlipButton" class="secondary-button">Flip board</button><button id="playResign" class="secondary-button">Resign</button></div>
+      <div class="analysis-workspace play-workspace">
+        <section class="analysis-board-column play-board-column"><div id="playBoardShell" class="board-shell analysis-board-shell play-board-shell theme-brown"><div id="playBoard" class="board analysis-board" aria-label="Play against a chess engine"></div></div><div class="board-message play-board-message"><span class="message-dot"></span><span id="playStatus">Your move.</span></div></section>
+        <aside class="analysis-sidebar play-sidebar">
+          <section class="analysis-card play-setup-card"><div class="analysis-card-heading"><span class="panel-kicker">Game setup</span><strong id="playTurn">Your turn</strong></div><div class="play-setup-grid"><label>Opponent<select id="playEngine"><option value="stockfish">Stockfish 18 · local</option><option value="reckless">Reckless browser · Alpha</option></select></label><label>Play as<select id="playColor"><option value="w">White</option><option value="b">Black</option></select></label></div><label>Starting position<select id="playOdds"><option value="standard">Standard starting position</option><option value="engine-knight">Engine gives knight odds</option><option value="engine-rook">Engine gives rook odds</option><option value="engine-queen">Engine gives queen odds</option><option value="human-knight">You give knight odds</option><option value="human-rook">You give rook odds</option><option value="human-queen">You give queen odds</option></select></label><label>Promote pawns to<select id="playPromotion"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select></label><p><strong>Reckless is alpha software.</strong> Starting it may download roughly 61.5 MiB and can use substantial memory, battery, and mobile data.</p></section>
+          <section class="analysis-card play-status-card"><div class="analysis-card-heading"><span class="panel-kicker">Position</span><span id="playPositionMeta">0 plies · No odds</span></div><div class="analysis-evaluation"><strong id="playMaterial">Equal</strong><span>Material from your perspective</span></div><div class="engine-line"><span>Latest engine activity</span><strong id="playEngineDetail">The engine starts after you make a move.</strong></div></section>
+          <section class="analysis-card notation-analysis-card play-notation-card"><div class="analysis-card-heading notation-card-heading"><span class="panel-kicker">Move notation</span><span>Live game score</span></div><div id="playNotation" class="analysis-notation play-notation"><p>No moves yet. Choose a piece or change the starting odds.</p></div></section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="reportPage" class="report-page hidden">
+      <div class="report-hero">
+        <div class="report-intro">
+          <span class="eyebrow"><span></span> Chess Report</span><h1>Your latest games, wrapped.</h1><p>See your average accuracy and recent results across up to 50 games. Stockfish calculates the summary privately on your device.</p>
+          <form id="reportForm" class="report-form"><select id="reportSource" aria-label="Chess Report game source"><option value="chesscom">Chess.com</option><option value="lichess">Lichess</option><option value="pgn">PGN / notation</option></select><input id="reportUsername" required minlength="2" maxlength="30" placeholder="username" autocomplete="username"><button class="primary-button" type="submit">Build Chess Report</button></form>
+          <div class="search-meta report-search-meta"><span id="reportScopeText">Your latest 50 public games, or every available game when fewer than 50 exist</span><span id="reportError" class="inline-error" role="alert"></span></div>
+          <div id="reportProgress" class="report-progress hidden"><div><span class="loader"></span><strong id="reportProgressText">Preparing Stockfish…</strong><button id="stopReportButton" class="secondary-button analysis-stop-button" type="button">Stop analysis</button></div><div class="progress-track"><span id="reportProgressBar"></span></div></div>
+          <div class="tier-summary report-summary-cards"><article><span>At a glance</span><strong>Accuracy, volume, and record</strong><small>A simple overview of how your latest games went.</small></article><article><span>Private</span><strong>Analysis stays in your browser</strong><small>Your positions are evaluated locally by Stockfish.</small></article></div>
+        </div>
+      </div>
+      <div id="reportResults" class="report-results wrapped-only-results hidden"><section id="chessWrapped" class="chess-wrapped hidden"><div><span class="panel-kicker">Chess Report</span><h2>Your recent-game accuracy</h2><p id="wrappedDescription">Average move accuracy across your latest analyzed games.</p></div><div class="wrapped-score"><strong id="wrappedAccuracy">—</strong><span>average accuracy</span></div><div class="wrapped-details"><span><strong id="wrappedGames">0</strong> games</span><span><strong id="wrappedMoves">0</strong> moves measured</span><span id="wrappedRecord">0 wins · 0 draws · 0 losses</span></div></section></div>
+    </section>
+
+    <section id="tacticsReportPage" class="report-page hidden">
+      <div class="report-hero">
+        <div class="report-intro">
+          <span class="eyebrow"><span></span> Tactics Report</span><h1>Find the patterns behind your mistakes.</h1><p>Analyze public games or upload tournament scores. DoBackChess identifies costly tactical decisions, groups them by theme, and turns them into a focused practice plan.</p>
+          <form id="tacticsReportForm" class="report-form"><select id="tacticsReportSource" aria-label="Tactics Report game source"><option value="chesscom">Chess.com</option><option value="lichess">Lichess</option><option value="pgn">PGN / notation</option></select><input id="tacticsReportUsername" required minlength="2" maxlength="30" placeholder="username" autocomplete="username"><button class="primary-button" type="submit">Build Tactics Report</button></form>
+          <div class="search-meta report-search-meta"><span id="tacticsReportScopeText">Every game from the last 7 days or the latest 50, whichever is larger</span><span id="tacticsReportError" class="inline-error" role="alert"></span></div>
+          <div id="tacticsReportProgress" class="report-progress hidden"><div><span class="loader"></span><strong id="tacticsReportProgressText">Preparing Stockfish…</strong><button id="stopTacticsReportButton" class="secondary-button analysis-stop-button" type="button">Stop analysis</button></div><div class="progress-track"><span id="tacticsReportProgressBar"></span></div></div>
+          <div class="tier-summary report-summary-cards"><article><span>Actionable</span><strong>Recurring tactical weaknesses</strong><small>See the mistakes and themes with the highest training value.</small></article><article><span>Flexible</span><strong>Accounts, PGN files, or notation</strong><small>Use Chess.com, Lichess, or real tournament scores.</small></article></div>
+        </div>
+      </div>
+      <div id="tacticsReportResults" class="report-results hidden"><section class="report-summary"><div><strong id="tacticsReportGames">0</strong><span>games</span></div><div><strong id="tacticsReportPositions">0</strong><span>positions checked</span></div><div><strong id="tacticsReportMistakes">0</strong><span>costly mistakes</span></div></section><div class="section-heading"><div><span class="panel-kicker">Recommended practice</span><h2>Your highest-value themes</h2></div></div><div id="tacticsReportRecommendations" class="report-grid"></div><div class="section-heading report-examples-heading"><div><span class="panel-kicker">Positions from your games</span><h2>Labeled examples</h2></div></div><div id="tacticsReportExamples" class="report-examples"></div></div>
+    </section>
+
+    <section id="aboutPage" class="about-page hidden">
+      <div class="about-summary">
+        <span class="eyebrow"><span></span> Public alpha</span>
+        <h1>About DoBackChess</h1>
+        <p>DoBackChess is free chess software developed by <a href="https://easternkentuckydigital.com" target="_blank" rel="noreferrer">Eastern Kentucky Digital ↗</a>. It is currently a public alpha, so features may change while we continue testing engine behavior, reports, browser support, and account sync.</p>
+        <p>Stockfish and the Reckless browser alpha run locally on your computer. Signed-in Google and email/password accounts can retain a larger Firebase-backed game library and sync reports, preferences, and review progress.</p>
+      </div>
+      <section class="coming-soon"><span class="panel-kicker">Coming soon</span><h2>Planned features</h2><ul><li><strong>Lc0 analysis</strong><span>Neural-network analysis as an additional perspective.</span></li><li><strong>Opening study</strong><span>Review recurring opening decisions and build focused study plans.</span></li><li><strong>Endgame study</strong><span>Practice important technical endings from real games.</span></li><li><strong>Deeper history tools</strong><span>Use larger long-term game libraries to identify durable patterns.</span></li></ul></section>
+      <p class="alpha-note"><strong>Public alpha:</strong> treat results as training guidance and expect continued changes.</p>
+    </section>
+
+    <section id="trainer" class="trainer hidden">
+      <div class="trainer-toolbar">
+        <div><span class="eyebrow"><span></span><span id="gameWindow">Last 7 days</span></span><h1><span id="deckTitle">Your</span> training deck</h1></div>
+        <div class="toolbar-actions"><span class="deck-stat"><strong id="dueCount">0</strong> due</span><span class="deck-stat"><strong id="puzzleCount">0</strong> positions</span><button id="gamesButton" class="secondary-button">Games <span id="gamesCount">0</span></button></div>
+      </div>
+
+      <div class="training-grid">
+        <aside class="context-panel">
+          <div class="puzzle-context"><div><span id="puzzleCategory" class="category">Your move</span><h2 id="puzzlePrompt">Find the best move in this position</h2></div><div class="game-context"><strong id="puzzleOpponent">—</strong><span id="puzzleMeta">Choose games to begin</span></div></div>
+          <div class="notation-heading"><div><span class="panel-kicker">Game notation</span><h3 id="notationGame">Game score</h3></div><span id="notationResult">—</span></div>
+          <div id="notationList" class="notation-list"><p class="notation-empty">The game notation will follow the current puzzle.</p></div>
+          <div class="notation-footer"><span id="notationOpening">—</span><a id="chessComLink" href="#" target="_blank" rel="noreferrer">Open source game ↗</a></div>
+        </aside>
+
+        <section class="board-area"><div class="training-board-frame"><div id="puzzleEvalBar" class="eval-bar equal hidden" role="meter" aria-label="Solution evaluation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><div class="eval-bar-white"></div><span class="eval-bar-label">—</span></div><div id="boardShell" class="board-shell theme-brown"><div id="board" class="board" aria-label="Interactive chess board"></div><svg id="arrows" class="arrows" viewBox="0 0 800 800" preserveAspectRatio="none" aria-hidden="true"></svg></div></div><div id="boardMessage" class="board-message"><span class="message-dot"></span><span id="boardMessageText">Select a piece, then choose its destination.</span></div></section>
+
+        <aside class="answer-panel">
+          <div id="analysisBanner" class="analysis-banner analysis-banner-panel hidden"><div class="analysis-copy"><span class="loader"></span><div><strong id="analysisTitle">Starting Stockfish…</strong><span id="analysisDetail">The work happens on this device.</span></div><button id="stopTrainingAnalysis" class="secondary-button analysis-stop-button" type="button">Stop analysis</button></div><div class="progress-track"><span id="analysisProgress"></span></div></div>
+          <div id="welcomePanel" class="answer-state"><span class="panel-kicker">Training loop</span><h2>Important positions, not engine noise.</h2><p>DoBackChess keeps large mistakes, missed mates, and substantial missed wins.</p><button id="startAnalysisButton" class="primary-button">Analyze selected games</button></div>
+          <div id="thinkingPanel" class="answer-state hidden"><span class="thinking-knight">♞</span><span id="thinkingEngine" class="panel-kicker">Stockfish 18</span><h2>Finding the moments that matter.</h2><p id="thinkingDetail">Your browser is evaluating the selected games.</p></div>
+          <div id="puzzlePanel" class="answer-state hidden"><span class="panel-kicker">From the game</span><h2>What would you play?</h2><p>Click or drag a piece to move. Right-drag to mark an arrow. The board is shown from the studied player's side.</p><div class="hint-card"><span>Hint</span><strong id="puzzleHint">Look for forcing moves: checks, captures, and threats.</strong></div></div>
+          <div id="wrongPanel" class="answer-state hidden"><span class="result-icon wrong">×</span><span class="panel-kicker">Wrong move</span><h2>There is a stronger continuation.</h2><p id="wrongText">That move misses the point of the position.</p><div class="attempt-eval"><span>Your move</span><strong id="attemptMove">—</strong><small id="attemptEval">Evaluating…</small></div><div class="stack-actions"><button id="tryAgainButton" class="primary-button">Try again</button><button id="showSolutionButton" class="secondary-button">Show solution</button></div></div>
+          <div id="solutionPanel" class="answer-state hidden"><span id="solutionIcon" class="result-icon correct">✓</span><span id="solutionKicker" class="panel-kicker">Correct</span><h2 id="solutionTitle">That is the move.</h2><div class="comparison"><div class="played"><span id="playedLabel">Played in the game</span><strong id="playedMove">—</strong><small id="playedEval">—</small></div><div class="best"><span id="bestLabel">Best move</span><strong id="bestMove">—</strong><small id="bestEval">—</small></div></div><div class="engine-line"><span id="solutionEngineLabel">Engine continuation</span><strong id="solutionLine">—</strong></div><p class="rating-label">When should this return?</p><div class="ratings"><button data-rating="again"><strong>Again</strong><span>&lt; 10m</span></button><button data-rating="hard"><strong>Hard</strong><span>1d</span></button><button data-rating="good"><strong>Good</strong><span>3d</span></button><button data-rating="easy"><strong>Easy</strong><span>7d</span></button></div></div>
+          <div id="emptyPanel" class="answer-state hidden"><span class="result-icon correct">✓</span><span class="panel-kicker">Deck clear</span><h2>No qualifying positions found.</h2><p>Choose more games or import another account.</p></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="authDialog" class="modal auth-modal">
+    <div class="auth-brand">DoBackChess</div><h2>Save your games and progress</h2><p>Sign in with Google or use an email and password to keep one DoBackChess account across devices.</p>
+    <div class="social-auth"><button type="button" class="secondary-button" data-cloud-provider="google">Continue with Google</button><small id="cloudAuthNote">Checking cloud account configuration…</small></div>
+    <div class="guest-divider"><span>or use email</span></div>
+    <form id="emailAuthForm" class="auth-form email-auth-form"><label>Email<input id="authEmail" name="email" type="email" required autocomplete="email" placeholder="you@example.com"></label><label>Password<input id="authPassword" name="password" type="password" required minlength="6" autocomplete="current-password" placeholder="At least 6 characters"></label><div class="email-auth-actions"><button id="emailSignInButton" class="primary-button" type="submit">Sign in</button><button id="emailCreateButton" class="secondary-button" type="button">Create account</button></div><button id="emailResetButton" class="text-button email-reset-button" type="button">Forgot password?</button></form>
+    <div id="authError" class="inline-error" role="alert"></div>
+    <div class="guest-divider"><span>or stay on this device</span></div>
+    <div id="savedProfiles" class="saved-profiles hidden"><span>Saved on this device</span><div id="profileChoices" class="profile-choices"></div><div class="guest-divider"><span>or create another</span></div></div>
+    <form id="profileForm" class="auth-form"><label>Profile name<input name="username" required minlength="2" maxlength="32" autocomplete="nickname"></label><button class="primary-button">Create device profile</button></form>
+    <div class="guest-divider"><span>or</span></div><button id="guestButton" class="secondary-button full-button">Continue as guest</button>
+  </dialog>
+
+  <dialog id="gamesDialog" class="modal"><div class="modal-header"><div><span class="panel-kicker">Deck source</span><h2>Choose games to train</h2></div><button class="close-button" data-close="gamesDialog">×</button></div><div class="selection-row"><button id="selectAllGames" class="text-button">Select all</button><span id="selectedGameCount">0 selected</span></div><div id="gamePicker" class="game-picker"></div><div class="modal-footer"><button class="secondary-button" data-close="gamesDialog">Cancel</button><button id="applyGamesButton" class="primary-button">Train selected games</button></div></dialog>
+
+  <dialog id="analysisPgnDialog" class="modal pgn-modal"><div class="modal-header"><div><span class="panel-kicker">Analysis board</span><h2>Import PGN</h2></div><button class="close-button" data-close="analysisPgnDialog">×</button></div><div class="pgn-import-body"><label>Choose a PGN file<input id="analysisPgnFile" type="file" accept=".pgn,text/plain,application/x-chess-pgn"></label><label>Or paste PGN<textarea id="analysisPgnInput" rows="12" spellcheck="false" placeholder="[Event &quot;Game&quot;]&#10;&#10;1. e4 e5 2. Nf3 Nc6"></textarea></label><div id="analysisPgnError" class="inline-error" role="alert"></div></div><div class="modal-footer"><button class="secondary-button" data-close="analysisPgnDialog">Cancel</button><button id="analysisLoadPgnButton" class="primary-button">Load game</button></div></dialog>
+
+  <dialog id="trainingPgnDialog" class="modal pgn-modal"><div class="modal-header"><div><span class="panel-kicker">Tournament import</span><h2 id="trainingPgnTitle">Build a deck from PGN</h2></div><button class="close-button" data-close="trainingPgnDialog">×</button></div><div class="pgn-import-body"><p id="trainingPgnDescription" class="pgn-description">Upload one or more real games, or paste PGN/SAN notation such as 1. e4 e5 2. Nf3 Nc6.</p><div class="pgn-player-grid"><label>Player name (optional)<input id="trainingPgnPlayer" maxlength="80" placeholder="Matched against White / Black headers"></label><label>When no name matches<select id="trainingPgnColor"><option value="white">Study as White</option><option value="black">Study as Black</option></select></label></div><label>Choose PGN or text file<input id="trainingPgnFile" type="file" accept=".pgn,.txt,text/plain,application/x-chess-pgn"></label><label>Or paste PGN / move notation<textarea id="trainingPgnInput" rows="12" spellcheck="false" placeholder="[Event &quot;Club Championship&quot;]&#10;[White &quot;You&quot;]&#10;[Black &quot;Opponent&quot;]&#10;&#10;1. e4 e5 2. Nf3 Nc6 3. Bb5 a6"></textarea></label><div id="trainingPgnError" class="inline-error" role="alert"></div></div><div class="modal-footer"><button class="secondary-button" data-close="trainingPgnDialog">Cancel</button><button id="loadTrainingPgnButton" class="primary-button">Build training deck</button></div></dialog>
+
+  <dialog id="settingsDialog" class="modal settings-modal">
+    <div class="modal-header"><div><span class="panel-kicker">Preferences</span><h2>Settings</h2></div><button class="close-button" data-close="settingsDialog">×</button></div>
+    <div class="settings-tabs"><button data-settings-tab="appearance" class="active">Appearance</button><button data-settings-tab="analysis">Analysis</button><button data-settings-tab="effects">Sound & motion</button><button data-settings-tab="account">Account</button></div>
+    <div class="settings-scroll">
+      <div class="settings-pane" data-settings-pane="appearance">
+        <section class="setting-section"><h3>Website theme</h3><div class="choice-grid site-theme-choices"><button data-site-theme="system"><span class="site-swatch site-system"></span><strong>System</strong></button><button data-site-theme="light"><span class="site-swatch site-light"></span><strong>Light</strong></button><button data-site-theme="dark"><span class="site-swatch site-dark"></span><strong>Dark</strong></button><button data-site-theme="dimmed"><span class="site-swatch site-dimmed"></span><strong>Dimmed</strong></button><button data-site-theme="warm"><span class="site-swatch site-warm"></span><strong>Warm</strong></button></div></section>
+        <section class="setting-section"><h3>Board colors</h3><div class="choice-grid"><button data-theme="brown"><span class="board-swatch brown"></span><strong>Walnut</strong></button><button data-theme="green"><span class="board-swatch green"></span><strong>Lichess green</strong></button><button data-theme="blue"><span class="board-swatch blue"></span><strong>Blue</strong></button><button data-theme="slate"><span class="board-swatch slate"></span><strong>Slate</strong></button></div></section>
+        <section class="setting-section"><h3>Pieces</h3><div class="choice-grid piece-choices"><button data-pieces="cburnett"><img src="./pieces/cburnett/wN.svg" alt=""><strong>Cburnett</strong></button><button data-pieces="alpha"><img src="./pieces/alpha/wN.svg" alt=""><strong>Alpha</strong></button><button data-pieces="merida"><img src="./pieces/merida/wN.svg" alt=""><strong>Merida</strong></button></div></section>
+      </div>
+      <div class="settings-pane hidden" data-settings-pane="analysis"><section class="setting-section"><h3>Analysis engine</h3><div id="engineChoices" class="engine-choices"></div></section><section class="setting-section"><h3>Analysis strength</h3><div class="choice-grid analysis-level-choices"><button type="button" data-analysis-level="quick"><strong>Quick</strong><small>Fastest</small></button><button type="button" data-analysis-level="balanced"><strong>Balanced</strong><small>Recommended</small></button><button type="button" data-analysis-level="deep"><strong>Deep</strong><small>Strongest</small></button></div><p id="analysisLevelNote" class="setting-description"></p><p class="setting-description strength-warning"><strong>Stronger analysis is slower.</strong> Deep analysis can take several times longer and use more CPU and battery. You can stop training or report analysis at any time; stopped training keeps puzzles already completed.</p></section><section class="setting-section"><p class="setting-description engine-privacy-note"><strong>All beta analysis features run locally and are included.</strong> Reckless browser alpha may download about 61.5 MiB when first started. No chess positions leave this device. <a href="https://github.com/EasternKentuckyDigital/recklesschessweb" target="_blank" rel="noreferrer">Browser source</a> · <a href="https://github.com/codedeliveryservice/Reckless" target="_blank" rel="noreferrer">engine source</a> · <a href="./vendor/reckless/LICENSE" target="_blank" rel="noreferrer">AGPL-3.0 license</a>.</p></section></div>
+      <div class="settings-pane hidden" data-settings-pane="effects"><section class="setting-section effects-settings"><div class="toggle-row"><div><h3>Motion and sounds</h3><p>Lightweight move animations and synthesized chess cues.</p></div><label class="switch"><input id="effectsToggle" type="checkbox" checked><span></span></label></div><label class="volume-row" for="masterVolume"><span>Master volume</span><input id="masterVolume" type="range" min="0" max="100" value="65"><output id="volumeOutput">65%</output></label><button id="testSoundButton" class="secondary-button">Play test sound</button></section><p class="license-note">Sounds are synthesized locally with Web Audio. The linked third-party sound-pack repository was not bundled because it does not provide a license.</p></div>
+      <div class="settings-pane hidden" data-settings-pane="account"><section class="setting-section"><h3 id="settingsAccountName">Guest</h3><p id="settingsAccountDetail" class="setting-description">Guest progress is saved only in this browser.</p><p id="settingsPlanDetail" class="setting-description plan-note">Free beta: local engines, reports, master games, analysis, and review tools are included.</p><p class="setting-description sync-note" id="accountSyncNote">Sign in with Google or email and password to sync preferences, saved games, reports, and puzzle review status.</p><div class="account-link-actions"><button type="button" class="secondary-button" data-link-provider="google">Link Google</button></div><button id="logoutButton" class="secondary-button">Leave session</button></section></div>
+    </div>
+    <p class="license-note">Preferences are remembered for this DoBackChess account. Lichess piece artwork is used under its open-source license.</p>
+  </dialog>
+
+  <dialog id="profileDialog" class="modal profile-modal"><div class="modal-header"><div><span class="panel-kicker">Training profile</span><h2 id="profileDialogName">Guest</h2></div><button class="close-button" data-close="profileDialog">×</button></div><div class="profile-stats"><div><strong id="profileReviews">0</strong><span>Reviews</span></div><div><strong id="profileMastered">0</strong><span>Mastered</span></div><div><strong id="profileStreak">0</strong><span>Due today</span></div></div><button id="changeAccountButton" class="secondary-button full-button">Sign in or switch account</button></dialog>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <footer><span>DoBackChess</span><span>Static-first · Stockfish 18 and Reckless browser alpha run locally · Chess.com, Lichess, and PGN games</span></footer>
+  <script type="module" src="./app.js?v=19"></script>
+</body>
+</html>
