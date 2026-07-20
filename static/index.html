@@ -3,9 +3,45 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Train important positions from your own games and games played by leading chess masters.">
-  <title>DoBackChess — learn from games that matter</title>
-  <link rel="stylesheet" href="./styles.css?v=20">
+  <title>DoBackChess — Free Browser Chess Analysis &amp; Tactics Training</title>
+  <meta name="description" content="Analyze Chess.com, Lichess, and PGN games in your browser. Build chess and tactics reports, train mistakes, and play Stockfish or Reckless for free.">
+  <meta name="application-name" content="DoBackChess">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://dobackchess.com/">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#1f883d" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="DoBackChess">
+  <meta property="og:title" content="DoBackChess — Free Browser Chess Analysis &amp; Tactics Training">
+  <meta property="og:description" content="Turn your Chess.com, Lichess, and PGN games into private browser analysis, chess reports, and tactics training.">
+  <meta property="og:url" content="https://dobackchess.com/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="DoBackChess — Free Browser Chess Analysis">
+  <meta name="twitter:description" content="Analyze your games, find tactical mistakes, and train them privately in your browser.">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "DoBackChess",
+      "url": "https://dobackchess.com/",
+      "description": "Free browser chess analysis, reports, tactics training, and engine play using Chess.com, Lichess, or PGN games.",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Any",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "Eastern Kentucky Digital",
+        "url": "https://easternkentuckydigital.com/"
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="./styles.css?v=21">
 </head>
 <body>
   <header class="topbar">
@@ -139,16 +175,34 @@
     </section>
   </main>
 
-  <dialog id="authDialog" class="modal auth-modal">
-    <div class="auth-brand">DoBackChess</div><h2>Save your games and progress</h2><p>Sign in with Google or use an email and password to keep one DoBackChess account across devices.</p>
-    <div class="social-auth"><button type="button" class="secondary-button" data-cloud-provider="google">Continue with Google</button><small id="cloudAuthNote">Checking cloud account configuration…</small></div>
-    <div class="guest-divider"><span>or use email</span></div>
-    <form id="emailAuthForm" class="auth-form email-auth-form"><label>Email<input id="authEmail" name="email" type="email" required autocomplete="email" placeholder="you@example.com"></label><label>Password<input id="authPassword" name="password" type="password" required minlength="6" autocomplete="current-password" placeholder="At least 6 characters"></label><div class="email-auth-actions"><button id="emailSignInButton" class="primary-button" type="submit">Sign in</button><button id="emailCreateButton" class="secondary-button" type="button">Create account</button></div><button id="emailResetButton" class="text-button email-reset-button" type="button">Forgot password?</button></form>
+  <dialog id="authDialog" class="modal auth-modal" aria-labelledby="authTitle">
+    <div class="auth-brand">DoBackChess</div>
+    <h2 id="authTitle">Choose how to continue</h2>
+    <p>You can use every beta feature as a guest. Sign in only if you want your library and progress available on other devices.</p>
+    <div class="auth-choice-list">
+      <button id="guestButton" type="button" class="primary-button">Continue as guest</button>
+      <button type="button" class="secondary-button" data-cloud-provider="google">Continue with Google</button>
+      <button id="emailSignInChoice" type="button" class="secondary-button">Sign in with email</button>
+      <button id="emailCreateChoice" type="button" class="secondary-button">Create an account</button>
+    </div>
+    <small id="cloudAuthNote" class="auth-note">Checking cloud account configuration…</small>
     <div id="authError" class="inline-error" role="alert"></div>
-    <div class="guest-divider"><span>or stay on this device</span></div>
-    <div id="savedProfiles" class="saved-profiles hidden"><span>Saved on this device</span><div id="profileChoices" class="profile-choices"></div><div class="guest-divider"><span>or create another</span></div></div>
-    <form id="profileForm" class="auth-form"><label>Profile name<input name="username" required minlength="2" maxlength="32" autocomplete="nickname"></label><button class="primary-button">Create device profile</button></form>
-    <div class="guest-divider"><span>or</span></div><button id="guestButton" class="secondary-button full-button">Continue as guest</button>
+    <div id="savedProfiles" class="saved-profiles hidden"><span>Saved on this device</span><div id="profileChoices" class="profile-choices"></div></div>
+  </dialog>
+
+  <dialog id="emailAuthDialog" class="modal auth-modal email-auth-modal" aria-labelledby="emailAuthTitle">
+    <button id="emailAuthBackButton" class="text-button auth-back-button" type="button">← Back</button>
+    <div class="auth-brand">DoBackChess</div>
+    <h2 id="emailAuthTitle">Sign in with email</h2>
+    <p id="emailAuthDescription">Use the email and password connected to your DoBackChess account.</p>
+    <form id="emailAuthForm" class="auth-form email-auth-form">
+      <label>Email<input id="authEmail" name="email" type="email" required autocomplete="email" placeholder="you@example.com"></label>
+      <label>Password<input id="authPassword" name="password" type="password" required minlength="6" autocomplete="current-password" placeholder="At least 6 characters"></label>
+      <label id="authPasswordConfirmLabel" class="hidden">Confirm password<input id="authPasswordConfirm" name="passwordConfirm" type="password" minlength="6" autocomplete="new-password" placeholder="Enter it again"></label>
+      <button id="emailSubmitButton" class="primary-button" type="submit">Sign in</button>
+      <button id="emailResetButton" class="text-button email-reset-button" type="button">Forgot password?</button>
+    </form>
+    <div id="emailAuthError" class="inline-error" role="alert"></div>
   </dialog>
 
   <dialog id="gamesDialog" class="modal"><div class="modal-header"><div><span class="panel-kicker">Deck source</span><h2>Choose games to train</h2></div><button class="close-button" data-close="gamesDialog">×</button></div><div class="selection-row"><button id="selectAllGames" class="text-button">Select all</button><span id="selectedGameCount">0 selected</span></div><div id="gamePicker" class="game-picker"></div><div class="modal-footer"><button class="secondary-button" data-close="gamesDialog">Cancel</button><button id="applyGamesButton" class="primary-button">Train selected games</button></div></dialog>
@@ -177,6 +231,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
   <footer><span>DoBackChess</span><span>Static-first · Stockfish 18 and Reckless browser alpha run locally · Chess.com, Lichess, and PGN games</span></footer>
-  <script type="module" src="./app.js?v=20"></script>
+  <script type="module" src="./app.js?v=21"></script>
 </body>
 </html>

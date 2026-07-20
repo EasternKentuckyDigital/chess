@@ -1,18 +1,18 @@
 import { Chess } from "./vendor/chess/chess.js";
-import { DEFAULT_REPORT_GAMES, exportImportedGames, importGames, importPgnText, getGameDetail as buildGameDetail, normalizeReportGameLimit, reportSelectionCount, restoreImportedGames } from "./lib/game-import.js?v=20";
-import { ANALYSIS_LEVELS, analysisLimits, createEngine, engineDescriptor, engineDescriptors, engineFingerprint, isEngineCancellation, normalizeAnalysisLevel } from "./lib/engine-providers.js?v=20";
-import { activateDeviceProfile, clearProfileSession, continueAsGuest, createDeviceProfile, listDeviceProfiles, restoreProfileSession } from "./lib/profile-store.js";
+import { DEFAULT_REPORT_GAMES, exportImportedGames, importGames, importPgnText, getGameDetail as buildGameDetail, normalizeReportGameLimit, reportSelectionCount, restoreImportedGames } from "./lib/game-import.js?v=21";
+import { ANALYSIS_LEVELS, analysisLimits, createEngine, engineDescriptor, engineDescriptors, engineFingerprint, isEngineCancellation, normalizeAnalysisLevel } from "./lib/engine-providers.js?v=21";
+import { activateDeviceProfile, clearProfileSession, continueAsGuest, listDeviceProfiles, restoreProfileSession } from "./lib/profile-store.js";
 import { classifyPuzzleEligibility } from "./lib/puzzle-rules.js";
 import { createBoardArrows } from "./lib/board-arrows.js";
 import { FEATURED_MASTERS, fetchGrandmasterHandles } from "./lib/masters.js";
-import { initAnalysisBoard } from "./lib/analysis-board.js?v=20";
+import { initAnalysisBoard } from "./lib/analysis-board.js?v=21";
 import { cloudConfigured, createEmailAccount, initCloudSession, loadCloudJson, queueCloudJson, sendEmailPasswordReset, signInOrLink, signInWithEmail, signOutCloud } from "./lib/auth-sync.js";
-import { initEnginePlay } from "./lib/engine-play.js?v=20";
-import { buildChessReport } from "./lib/chess-report.js?v=20";
+import { initEnginePlay } from "./lib/engine-play.js?v=21";
+import { buildChessReport } from "./lib/chess-report.js?v=21";
 import { sideToMoveScore } from "./lib/engine-score.js";
 import { renderEvaluationBar } from "./lib/eval-bar.js";
-import { resolveSiteTheme } from "./lib/theme.js?v=20";
-import { retainedLibraryRecords } from "./lib/library-storage.js?v=20";
+import { resolveSiteTheme } from "./lib/theme.js?v=21";
+import { retainedLibraryRecords } from "./lib/library-storage.js?v=21";
 
 const ANALYSIS_VERSION = 13;
 const DAY = 24 * 60 * 60 * 1000;
@@ -1205,16 +1205,22 @@ $("#profileButton").addEventListener("click", () => {
   $("#profileDialog").showModal();
 });
 
+function enterGuestSession() {
+  state.appUser = null;
+  state.guest = true;
+  continueAsGuest();
+  loadAccountPreferences();
+  renderEngineChoices();
+  updateIdentityUI();
+}
+
 async function leaveCurrentSession() {
   if (state.appUser?.storage === "cloud") await signOutCloud().catch(error => showToast(error.message));
-  state.appUser = null;
-  state.guest = false;
   clearProfileSession();
+  enterGuestSession();
   if ($("#settingsDialog").open) $("#settingsDialog").close();
   if ($("#profileDialog").open) $("#profileDialog").close();
   goHome();
-  updateIdentityUI();
-  renderEngineChoices();
   renderProfileChoices();
   if (!$("#authDialog").open) $("#authDialog").showModal();
 }
@@ -1270,28 +1276,6 @@ $$('[data-settings-tab]').forEach(button => button.addEventListener("click", () 
   $$('[data-settings-pane]').forEach(pane => pane.classList.toggle("hidden", pane.dataset.settingsPane !== button.dataset.settingsTab));
 }));
 
-function submitProfile(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const submit = form.querySelector("button");
-  const values = Object.fromEntries(new FormData(form));
-  submit.disabled = true;
-  $("#authError").textContent = "";
-  try {
-    signOutCloud().catch(console.error);
-    state.appUser = createDeviceProfile(values.username);
-    state.guest = false;
-    loadAccountPreferences();
-    renderEngineChoices();
-    updateIdentityUI();
-    $("#authDialog").close();
-  } catch (error) {
-    $("#authError").textContent = error.message;
-  } finally {
-    submit.disabled = false;
-  }
-}
-
 function renderProfileChoices() {
   const profiles = listDeviceProfiles();
   $("#savedProfiles").classList.toggle("hidden", !profiles.length);
@@ -1311,20 +1295,10 @@ function renderProfileChoices() {
   }));
 }
 
-$("#profileForm").addEventListener("submit", submitProfile);
 $("#guestButton").addEventListener("click", () => {
   signOutCloud().catch(console.error);
-  state.appUser = null;
-  state.guest = true;
-  continueAsGuest();
-  loadAccountPreferences();
-  renderEngineChoices();
-  updateIdentityUI();
+  enterGuestSession();
   $("#authDialog").close();
-});
-
-$("#authDialog").addEventListener("cancel", event => {
-  if (!state.appUser && !state.guest) event.preventDefault();
 });
 
 $("#logoutButton").addEventListener("click", leaveCurrentSession);
@@ -1347,7 +1321,7 @@ function updateIdentityUI() {
   $("#settingsPlanDetail").textContent = "Free beta: Stockfish, Reckless browser alpha, reports, master games, analysis, and review tools are included.";
   $("#profileDialogName").textContent = name;
   $("#accountSyncNote").textContent = cloud ? "Larger imported game libraries, reports, preferences, and puzzle review status sync through your DoBackChess cloud account." : "Sign in to retain a larger imported game library and sync reports, preferences, and puzzle review status.";
-  $("#logoutButton").textContent = state.appUser ? (cloud ? "Sign out" : "Switch profile") : "Leave guest session";
+  $("#logoutButton").textContent = state.appUser ? (cloud ? "Sign out" : "Switch profile") : "Sign in or switch account";
   $$("[data-link-provider]").forEach(button => {
     const providerId = `${button.dataset.linkProvider}.com`;
     button.classList.toggle("hidden", !cloud || state.appUser.providers?.includes(providerId));
@@ -1391,6 +1365,7 @@ async function activateCloudUser(user, migration = null) {
   loadAccountPreferences();
   updateIdentityUI();
   if ($("#authDialog").open) $("#authDialog").close();
+  if ($("#emailAuthDialog").open) $("#emailAuthDialog").close();
 }
 
 async function handleCloudProvider(provider, button) {
@@ -1413,8 +1388,28 @@ async function handleCloudProvider(provider, button) {
   }
 }
 
+let emailAuthMode = "signin";
+
+function openEmailAuth(mode) {
+  emailAuthMode = mode;
+  const creating = mode === "create";
+  $("#emailAuthTitle").textContent = creating ? "Create your account" : "Sign in with email";
+  $("#emailAuthDescription").textContent = creating
+    ? "Create one account to sync your game library, reports, settings, and training progress."
+    : "Use the email and password connected to your DoBackChess account.";
+  $("#emailSubmitButton").textContent = creating ? "Create account" : "Sign in";
+  $("#emailResetButton").classList.toggle("hidden", creating);
+  $("#authPasswordConfirmLabel").classList.toggle("hidden", !creating);
+  $("#authPasswordConfirm").required = creating;
+  $("#authPassword").autocomplete = creating ? "new-password" : "current-password";
+  $("#emailAuthError").textContent = "";
+  if ($("#authDialog").open) $("#authDialog").close();
+  if (!$("#emailAuthDialog").open) $("#emailAuthDialog").showModal();
+  $("#authEmail").focus();
+}
+
 function setEmailAuthBusy(busy) {
-  ["#emailSignInButton", "#emailCreateButton", "#emailResetButton"].forEach(selector => {
+  ["#emailSubmitButton", "#emailResetButton"].forEach(selector => {
     $(selector).disabled = busy;
   });
 }
@@ -1422,8 +1417,13 @@ function setEmailAuthBusy(busy) {
 async function handleEmailAuth(mode) {
   const form = $("#emailAuthForm");
   if (!form.reportValidity()) return;
+  if (mode === "create" && $("#authPassword").value !== $("#authPasswordConfirm").value) {
+    $("#emailAuthError").textContent = "The passwords do not match.";
+    $("#authPasswordConfirm").focus();
+    return;
+  }
   setEmailAuthBusy(true);
-  $("#authError").textContent = "";
+  $("#emailAuthError").textContent = "";
   try {
     const migration = captureLocalMigration();
     const email = $("#authEmail").value;
@@ -1435,7 +1435,7 @@ async function handleEmailAuth(mode) {
     form.reset();
     showToast(mode === "create" ? "Your DoBackChess account is ready." : "Signed in to your DoBackChess account.");
   } catch (error) {
-    $("#authError").textContent = error.message;
+    $("#emailAuthError").textContent = error.message;
     showToast(error.message);
   } finally {
     setEmailAuthBusy(false);
@@ -1444,19 +1444,24 @@ async function handleEmailAuth(mode) {
 
 $("#emailAuthForm").addEventListener("submit", event => {
   event.preventDefault();
-  handleEmailAuth("signin");
+  handleEmailAuth(emailAuthMode);
 });
-$("#emailCreateButton").addEventListener("click", () => handleEmailAuth("create"));
+$("#emailSignInChoice").addEventListener("click", () => openEmailAuth("signin"));
+$("#emailCreateChoice").addEventListener("click", () => openEmailAuth("create"));
+$("#emailAuthBackButton").addEventListener("click", () => {
+  $("#emailAuthDialog").close();
+  if (!$("#authDialog").open) $("#authDialog").showModal();
+});
 $("#emailResetButton").addEventListener("click", async () => {
   const emailInput = $("#authEmail");
   if (!emailInput.reportValidity()) return;
   setEmailAuthBusy(true);
-  $("#authError").textContent = "";
+  $("#emailAuthError").textContent = "";
   try {
     await sendEmailPasswordReset(emailInput.value);
     showToast("Password reset email sent. Check your inbox.");
   } catch (error) {
-    $("#authError").textContent = error.message;
+    $("#emailAuthError").textContent = error.message;
     showToast(error.message);
   } finally {
     setEmailAuthBusy(false);
@@ -1567,6 +1572,10 @@ if (lastUser) {
 const restored = restoreProfileSession();
 state.appUser = restored.profile;
 state.guest = restored.guest;
+if (!state.appUser && !state.guest) {
+  state.guest = true;
+  continueAsGuest();
+}
 loadAccountPreferences();
 renderEngineChoices();
 renderFeaturedMasters();
@@ -1575,9 +1584,8 @@ updateIdentityUI();
 updateGameSourceUI();
 updateReportSourceUI("wrapped");
 updateReportSourceUI("tactics");
-if (!state.appUser && !state.guest) $("#authDialog").showModal();
 function setCloudAuthDisabled(disabled) {
-  $$("[data-cloud-provider], #emailAuthForm input, #emailAuthForm button").forEach(control => {
+  $$("[data-cloud-provider], #emailSignInChoice, #emailCreateChoice, #emailAuthForm input, #emailAuthForm button").forEach(control => {
     control.disabled = disabled;
   });
 }
@@ -1591,10 +1599,9 @@ if (!cloudConfigured()) {
     if (user) await activateCloudUser(user);
     else if (lastCloudUserId && state.appUser?.storage === "cloud") {
       lastCloudUserId = null;
-      state.appUser = null;
-      state.guest = false;
-      updateIdentityUI();
-      if (!$("#authDialog").open) $("#authDialog").showModal();
+      clearProfileSession();
+      enterGuestSession();
+      showToast("Signed out. Continuing as guest.");
     }
   }).then(() => {
     setCloudAuthDisabled(false);

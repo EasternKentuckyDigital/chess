@@ -1,6 +1,6 @@
 import { Chess } from "../vendor/chess/chess.js";
 import { replayConfig } from "../config.js";
-import { createEngine } from "./engine-providers.js?v=20";
+import { createEngine } from "./engine-providers.js?v=21";
 import { normalizePromotion, selectPromotionMove } from "./promotion.js";
 
 const FILES = "abcdefgh";

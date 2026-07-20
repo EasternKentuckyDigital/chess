@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="DoBackChess chessboard">
+  <rect width="64" height="64" rx="12" fill="#1f883d"/>
+  <path fill="#fff" d="M14 14h18v18H14zm18 18h18v18H32z"/>
+  <path fill="#d8f3dc" d="M32 14h18v18H32zM14 32h18v18H14z"/>
+</svg>

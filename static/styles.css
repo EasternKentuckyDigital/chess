@@ -175,7 +175,8 @@ button { color: inherit; }
 .eval-bar.flipped.white-ahead .eval-bar-label { top:4px; bottom:auto; }
 .eval-bar.equal .eval-bar-label { top:50%; bottom:auto; transform:translate(-50%,-50%); }
 .training-board-frame { width:min(100%,calc(100vh - 176px)); max-width:720px; min-height:0; display:grid; grid-template-columns:26px minmax(0,1fr); align-items:stretch; gap:7px; }
-.training-board-frame .board-shell { width:100%; max-width:none; }
+.training-board-frame > .eval-bar { grid-column:1; grid-row:1; }
+.training-board-frame > .board-shell { width:100%; max-width:none; grid-column:2; grid-row:1; }
 .board-message { min-height: 36px; padding: 9px 2px 0; display: flex; align-items: center; gap: 7px; color: var(--fg-muted); font-size: 11px; }
 .message-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-fg); }.board-message.wrong { color: var(--danger-fg); }.board-message.wrong .message-dot { background: var(--danger-fg); }.board-message.correct { color: var(--success-fg); font-weight: 600; }.board-message.correct .message-dot { background: var(--success-fg); }
 
@@ -313,6 +314,11 @@ body.reduce-effects *, body.reduce-effects *::before, body.reduce-effects *::aft
 .auth-brand { margin-bottom: 16px; font-size: 18px; font-weight: 700; }
 .auth-modal h2 { margin: 0 0 6px; font-size: 22px; }
 .auth-modal > p { margin: 0 0 18px; color: var(--fg-muted); font-size: 12px; }
+.auth-choice-list { display: grid; gap: 9px; }
+.auth-choice-list .primary-button, .auth-choice-list .secondary-button, .email-auth-form .primary-button { width: 100%; min-height: 40px; }
+.auth-note { display: block; margin-top: 12px; color: var(--fg-muted); font-size: 9px; line-height: 1.45; }
+.auth-back-button { margin: -6px 0 14px; padding: 0; }
+.email-auth-modal .auth-brand { margin-bottom: 8px; }
 .auth-tabs, .settings-tabs { display: flex; border-bottom: 1px solid var(--border-muted); }
 .auth-tabs { margin-bottom: 16px; }
 .auth-tabs button, .settings-tabs button { flex: 1; min-height: 38px; border: 0; border-bottom: 2px solid transparent; color: var(--fg-muted); background: transparent; font-size: 11px; font-weight: 600; cursor: pointer; }
@@ -464,12 +470,7 @@ body.analysis-room footer { display: none; }
 .profile-button > span:first-child { width: auto; height: auto; display: inline; border-radius: 0; color: inherit; background: transparent; font-size: inherit; }
 
 /* Cloud identity */
-.social-auth { display: grid; grid-template-columns: 1fr; gap: 8px; }
-.social-auth small { color: var(--fg-muted); font-size: 9px; line-height: 1.4; }
-.social-auth .secondary-button { width: 100%; }
 .email-auth-form { gap: 9px; }
-.email-auth-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.email-auth-actions .primary-button, .email-auth-actions .secondary-button { width: 100%; }
 .email-reset-button { justify-self: start; padding: 2px 0; }
 .account-link-actions { margin: 14px 0 9px; display: flex; flex-wrap: wrap; gap: 7px; }
 
@@ -592,7 +593,6 @@ body.play-room footer { display: none; }
   .analysis-level-choices { grid-template-columns:1fr; }
   .report-game-limit-choices { grid-template-columns:1fr; }
   .coming-soon ul { grid-template-columns: 1fr; }
-  .email-auth-actions { grid-template-columns: 1fr; }
   .pgn-player-grid { grid-template-columns: 1fr; }
 }
 

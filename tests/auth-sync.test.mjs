@@ -11,14 +11,21 @@ test("email authentication errors are safe and understandable", () => {
 });
 
 test("the account UI offers Google and email/password without GitHub login", async () => {
-  const [html, authSource] = await Promise.all([
+  const [html, authSource, appSource] = await Promise.all([
     readFile(new URL("../static/index.html", import.meta.url), "utf8"),
     readFile(new URL("../static/lib/auth-sync.js", import.meta.url), "utf8"),
+    readFile(new URL("../static/app.js", import.meta.url), "utf8"),
   ]);
+  assert.match(html, /id="guestButton"[^>]*>Continue as guest/);
   assert.match(html, /data-cloud-provider="google"/);
+  assert.match(html, /id="emailSignInChoice"/);
+  assert.match(html, /id="emailCreateChoice"/);
+  assert.match(html, /id="emailAuthDialog"/);
   assert.match(html, /id="emailAuthForm"/);
-  assert.match(html, /id="emailCreateButton"/);
+  assert.match(html, /id="authPasswordConfirm"/);
   assert.match(html, /id="emailResetButton"/);
+  assert.match(appSource, /if \(!state\.appUser && !state\.guest\) \{\s*state\.guest = true;\s*continueAsGuest\(\);/);
+  assert.doesNotMatch(appSource, /if \(!state\.appUser && !state\.guest\) \$\("#authDialog"\)\.showModal\(\)/);
   assert.doesNotMatch(html, /data-cloud-provider="github"/);
   assert.doesNotMatch(html, /data-link-provider="github"/);
   assert.doesNotMatch(authSource, /GithubAuthProvider/);
