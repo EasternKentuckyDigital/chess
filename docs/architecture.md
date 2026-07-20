@@ -36,10 +36,10 @@ game ID. Cloud accounts may retain up to 500 records per player/source, while
 guest and device libraries retain up to 100. A conservative serialized-byte
 budget keeps each state document below Firestore's document-size ceiling.
 
-Training and Tactics Report request every public standard game in the last
-seven days or the latest 50, whichever set is larger. Chess Report analyzes at
-most the latest 50 games for its Wrapped-style average accuracy and record. The
-100-game master-deck scope remains separate.
+Training requests every public standard game in the last seven days or the
+selected 20-to-50-game fallback, whichever set is larger. Chess Report and
+Tactics Report analyze the latest 20 games by default and can be raised to 35 or
+50 in Settings. The 100-game master-deck scope remains separate.
 
 Deploy [`firestore.rules`](../firestore.rules) with the Firebase CLI so each UID
 can read and write only its own state. Firebase web configuration values are
@@ -128,9 +128,10 @@ prefix and also works at a custom-domain root. The worker streams all four
 chunks, reports combined progress, reassembles the bytes, and instantiates the
 single-threaded SIMD build.
 
-The beta exposes three explicit local-search budgets: Quick uses Stockfish depth
-16 and 400,000 Reckless nodes, Balanced uses depth 18 and 750,000 nodes, and
-Deep uses depth 22 and 2,000,000 nodes. Balanced is the default. The selected
+The beta exposes four explicit local-search budgets: Super quick uses Stockfish
+depth 16 and 400,000 Reckless nodes, Quick uses depth 17 and 550,000 nodes,
+Balanced uses depth 18 and 750,000 nodes, and Deep uses depth 22 and 2,000,000
+nodes. Super quick is the release-tested default. The selected
 level and effective limit are included in the cache fingerprint. `searchMoves`
 is implemented as an actual root-move filter in the pinned Rust/WASM build. The
 worker also verifies the best move against the requested set and raises a

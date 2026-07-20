@@ -1,11 +1,10 @@
 import { Chess } from "../vendor/chess/chess.js";
-import { createEngine } from "./engine-providers.js?v=19";
-import { importGames, getGameDetail } from "./game-import.js?v=19";
+import { createEngine } from "./engine-providers.js?v=20";
+import { DEFAULT_REPORT_GAMES, importGames, getGameDetail, normalizeReportGameLimit } from "./game-import.js?v=20";
 import { centipawnLoss, oppositeSideResult } from "./engine-score.js";
 import { classifyTacticalLine } from "./tactical-themes.js";
 
 export const MIN_REPORT_LOSS = 80;
-export const WRAPPED_GAME_LIMIT = 50;
 // Name a report tactic from the immediate engine refutation only. Later PV moves
 // often describe the conversion after the tactic rather than the tactic itself.
 const REPORT_TACTICAL_WINDOW_PLIES = 1;
@@ -106,20 +105,22 @@ export async function buildChessReport({
   source,
   importedGames = null,
   onProgress,
-  analysisLevel = "balanced",
+  analysisLevel = "superquick",
+  gameLimit = DEFAULT_REPORT_GAMES,
   reportMode = "combined",
   signal = null,
   engineFactory = createEngine,
   gameDetail = getGameDetail,
   gameImporter = importGames,
 }) {
-  const imported = importedGames || await gameImporter({ username, source, scope: "report" });
-  if (!imported.games.length) throw new Error("No standard chess games were available for this report.");
+  const normalizedGameLimit = normalizeReportGameLimit(gameLimit);
   const mode = ["wrapped", "tactics"].includes(reportMode) ? reportMode : "combined";
+  const imported = importedGames || await gameImporter({ username, source, scope: mode === "wrapped" ? "wrapped" : "report", gameLimit: normalizedGameLimit });
+  if (!imported.games.length) throw new Error("No standard chess games were available for this report.");
   const includeWrapped = mode !== "tactics";
   const includeTactics = mode !== "wrapped";
-  const analysisGames = mode === "wrapped" ? imported.games.slice(0, WRAPPED_GAME_LIMIT) : imported.games;
-  const wrappedGameRecords = includeWrapped ? analysisGames.slice(0, WRAPPED_GAME_LIMIT) : [];
+  const analysisGames = imported.games.slice(0, normalizedGameLimit);
+  const wrappedGameRecords = includeWrapped ? analysisGames : [];
   const engine = engineFactory("stockfish-browser", { level: analysisLevel });
   const stopEngine = () => engine.close();
   if (signal?.aborted) {
@@ -199,6 +200,7 @@ export async function buildChessReport({
     username,
     source,
     mode,
+    gameLimit: normalizedGameLimit,
     generatedAt: Date.now(),
     games: analysisGames.length,
     positions,

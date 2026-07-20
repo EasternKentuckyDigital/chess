@@ -88,7 +88,7 @@ test("BrowserReckless initializes lazily and normalizes FEN and constrained anal
   const result = await engine.evaluate(START_FEN, ["a2a3"]);
   assert.deepEqual(result, { bestmove: "a2a3", depth: 9, cp: 34, mate: null, pv: ["a2a3", "e7e5"] });
   assert.equal(wrapped.analysis[0].fen, START_FEN);
-  assert.equal(wrapped.analysis[0].nodes, RECKLESS_NODE_LIMIT);
+  assert.equal(wrapped.analysis[0].nodes, ANALYSIS_LEVELS.superquick.recklessNodes);
   assert.deepEqual(wrapped.analysis[0].searchMoves, ["a2a3"]);
   assert.equal(progress.length, 1);
   engine.close();
@@ -136,7 +136,7 @@ test("prevents a stale Reckless result from replacing a newer position", async (
   engine.close();
 });
 
-test("Stockfish uses the beta depth and searchmoves contract", async () => {
+test("Stockfish uses the super-quick default depth and searchmoves contract", async () => {
   const previousWorker = globalThis.Worker;
   class FakeStockfishWorker {
     constructor() { this.commands = []; }
@@ -159,7 +159,7 @@ test("Stockfish uses the beta depth and searchmoves contract", async () => {
     await engine.init();
     const result = await engine.evaluate(START_FEN, ["e2e4"]);
     assert.deepEqual(result, { bestmove: "e2e4", depth: 18, cp: 21, mate: null, pv: ["e2e4", "e7e5"] });
-    assert.ok(engine.worker.commands.includes("go depth 18 searchmoves e2e4"));
+    assert.ok(engine.worker.commands.includes("go depth 16 searchmoves e2e4"));
     engine.close();
     assert.equal(engine.worker.terminated, true);
   } finally {
@@ -168,11 +168,16 @@ test("Stockfish uses the beta depth and searchmoves contract", async () => {
   }
 });
 
-test("analysis levels increase both local engine budgets", () => {
-  assert.equal(analysisLimits("quick").stockfishDepth, 16);
-  assert.equal(analysisLimits("quick").recklessNodes, 400_000);
+test("analysis levels increase both local engine budgets from the default release-tested baseline", () => {
+  assert.equal(analysisLimits().id, "superquick");
+  assert.equal(analysisLimits("unknown").id, "superquick");
+  assert.equal(analysisLimits("superquick").stockfishDepth, 16);
+  assert.equal(analysisLimits("superquick").recklessNodes, 400_000);
+  assert.equal(analysisLimits("quick").stockfishDepth, 17);
+  assert.equal(analysisLimits("quick").recklessNodes, 550_000);
   assert.equal(analysisLimits("balanced").stockfishDepth, 18);
   assert.equal(analysisLimits("deep").stockfishDepth, 22);
+  assert.ok(ANALYSIS_LEVELS.superquick.recklessNodes < ANALYSIS_LEVELS.quick.recklessNodes);
   assert.ok(ANALYSIS_LEVELS.quick.recklessNodes < ANALYSIS_LEVELS.balanced.recklessNodes);
   assert.ok(ANALYSIS_LEVELS.balanced.recklessNodes < ANALYSIS_LEVELS.deep.recklessNodes);
   const deep = new BrowserReckless({ engine: new FakeRecklessEngine(), runtime: browserRuntime(), level: "deep" });

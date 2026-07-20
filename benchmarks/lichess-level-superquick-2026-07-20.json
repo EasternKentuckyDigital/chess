@@ -1,0 +1,267 @@
+{
+  "generatedAt": "2026-07-20T18:43:43.407Z",
+  "sources": {
+    "evaluations": "https://database.lichess.org/lichess_db_eval.jsonl.zst",
+    "puzzles": "https://database.lichess.org/lichess_db_puzzle.csv.zst",
+    "license": "CC0",
+    "note": "Deterministic leading-file sample, balanced by side to move; no full database download required."
+  },
+  "configuration": {
+    "evalLimit": 50,
+    "evalOffset": 10000,
+    "puzzleLimit": 50,
+    "puzzleOffset": 10000,
+    "reportLimit": 50,
+    "stockfishDepth": 16,
+    "recklessNodes": 400000
+  },
+  "engines": {
+    "stockfish": {
+      "name": "Stockfish 18 Lite depth 16",
+      "evaluations": {
+        "positions": 50,
+        "legalRate": 100,
+        "exactTop1Rate": 68,
+        "withinAvailableMultiPvRate": 90,
+        "decisiveScoreSignAgreementRate": 100,
+        "meanAbsoluteCentipawnDelta": 41.96,
+        "bySide": {
+          "white": {
+            "positions": 25,
+            "exactTop1Rate": 68
+          },
+          "black": {
+            "positions": 25,
+            "exactTop1Rate": 68
+          }
+        },
+        "blackWhiteMaxTrapMatches": 0,
+        "blackChoicesWithinMultiPv": 15,
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 50,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 98,
+        "bySide": {
+          "white": {
+            "positions": 25,
+            "solveRate": 100
+          },
+          "black": {
+            "positions": 25,
+            "solveRate": 96
+          }
+        },
+        "specificLabelCoverageRate": 50,
+        "specificLabelPrecisionRate": 92,
+        "officialSpecificThemePositionRecallRate": 82.14,
+        "labelErrors": [
+          {
+            "id": "06NbQ",
+            "fen": "2r1r1k1/1b3p1p/p5p1/8/Q1Bq4/P6P/1P3PP1/1R4K1 w - - 0 26",
+            "predicted": "fork",
+            "predictedThemes": [
+              "fork"
+            ],
+            "officialThemes": [
+              "advantage",
+              "discoveredAttack",
+              "middlegame",
+              "short"
+            ]
+          },
+          {
+            "id": "06Nis",
+            "fen": "8/p7/1p6/5p1R/6r1/2R3Pn/PP2k1K1/8 b - - 1 45",
+            "predicted": "fork",
+            "predictedThemes": [
+              "fork"
+            ],
+            "officialThemes": [
+              "advantage",
+              "endgame",
+              "pin",
+              "short"
+            ]
+          }
+        ],
+        "errors": []
+      }
+    },
+    "reckless": {
+      "name": "Reckless alpha 400,000 nodes",
+      "evaluations": {
+        "positions": 50,
+        "legalRate": 100,
+        "exactTop1Rate": 68,
+        "withinAvailableMultiPvRate": 84,
+        "decisiveScoreSignAgreementRate": 96.3,
+        "meanAbsoluteCentipawnDelta": 33.24,
+        "bySide": {
+          "white": {
+            "positions": 25,
+            "exactTop1Rate": 72
+          },
+          "black": {
+            "positions": 25,
+            "exactTop1Rate": 64
+          }
+        },
+        "blackWhiteMaxTrapMatches": 0,
+        "blackChoicesWithinMultiPv": 15,
+        "errors": []
+      },
+      "puzzles": {
+        "positions": 50,
+        "legalRate": 100,
+        "exactOnlyMoveSolveRate": 100,
+        "bySide": {
+          "white": {
+            "positions": 25,
+            "solveRate": 100
+          },
+          "black": {
+            "positions": 25,
+            "solveRate": 100
+          }
+        },
+        "specificLabelCoverageRate": 50,
+        "specificLabelPrecisionRate": 92,
+        "officialSpecificThemePositionRecallRate": 82.14,
+        "labelErrors": [
+          {
+            "id": "06NbQ",
+            "fen": "2r1r1k1/1b3p1p/p5p1/8/Q1Bq4/P6P/1P3PP1/1R4K1 w - - 0 26",
+            "predicted": "fork",
+            "predictedThemes": [
+              "fork"
+            ],
+            "officialThemes": [
+              "advantage",
+              "discoveredAttack",
+              "middlegame",
+              "short"
+            ]
+          },
+          {
+            "id": "06Nis",
+            "fen": "8/p7/1p6/5p1R/6r1/2R3Pn/PP2k1K1/8 b - - 1 45",
+            "predicted": "fork",
+            "predictedThemes": [
+              "fork"
+            ],
+            "officialThemes": [
+              "advantage",
+              "endgame",
+              "pin",
+              "short"
+            ]
+          }
+        ],
+        "errors": []
+      }
+    }
+  },
+  "report": {
+    "positions": 50,
+    "reportThresholdCentipawns": 80,
+    "tacticalMistakeDetectionRate": 96,
+    "constrainedPvFindsLichessReplyRate": 98,
+    "endToEndTacticalAgreementRate": 96,
+    "meanDetectedCentipawnLoss": 27436.98,
+    "thresholdSensitivity": {
+      "80": {
+        "tacticalMistakeDetectionRate": 96,
+        "endToEndTacticalAgreementRate": 96,
+        "byBlunderingSide": {
+          "white": {
+            "detectionRate": 92,
+            "endToEndAgreementRate": 92
+          },
+          "black": {
+            "detectionRate": 100,
+            "endToEndAgreementRate": 100
+          }
+        }
+      },
+      "90": {
+        "tacticalMistakeDetectionRate": 96,
+        "endToEndTacticalAgreementRate": 96,
+        "byBlunderingSide": {
+          "white": {
+            "detectionRate": 92,
+            "endToEndAgreementRate": 92
+          },
+          "black": {
+            "detectionRate": 100,
+            "endToEndAgreementRate": 100
+          }
+        }
+      },
+      "100": {
+        "tacticalMistakeDetectionRate": 96,
+        "endToEndTacticalAgreementRate": 96,
+        "byBlunderingSide": {
+          "white": {
+            "detectionRate": 92,
+            "endToEndAgreementRate": 92
+          },
+          "black": {
+            "detectionRate": 100,
+            "endToEndAgreementRate": 100
+          }
+        }
+      },
+      "110": {
+        "tacticalMistakeDetectionRate": 92,
+        "endToEndTacticalAgreementRate": 92,
+        "byBlunderingSide": {
+          "white": {
+            "detectionRate": 92,
+            "endToEndAgreementRate": 92
+          },
+          "black": {
+            "detectionRate": 92,
+            "endToEndAgreementRate": 92
+          }
+        }
+      },
+      "120": {
+        "tacticalMistakeDetectionRate": 92,
+        "endToEndTacticalAgreementRate": 92,
+        "byBlunderingSide": {
+          "white": {
+            "detectionRate": 92,
+            "endToEndAgreementRate": 92
+          },
+          "black": {
+            "detectionRate": 92,
+            "endToEndAgreementRate": 92
+          }
+        }
+      }
+    },
+    "byBlunderingSide": {
+      "white": {
+        "positions": 25,
+        "detectionRate": 92,
+        "endToEndAgreementRate": 92
+      },
+      "black": {
+        "positions": 25,
+        "detectionRate": 100,
+        "endToEndAgreementRate": 100
+      }
+    },
+    "specificLabelCoverageRate": 35.42,
+    "specificLabelPrecisionRate": 100,
+    "officialSpecificThemePositionRecallRate": 65.38,
+    "labelErrors": [],
+    "errors": []
+  },
+  "functionalFailures": [],
+  "qualityWarnings": [
+    "Tactics Report's white end-to-end tactical agreement is below the 95% release target."
+  ]
+}

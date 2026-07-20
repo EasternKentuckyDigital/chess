@@ -21,12 +21,18 @@ function reportFixture() {
 
 test("the website presents Chess Report and Tactics Report as separate tools", async () => {
   const html = await readFile(new URL("../static/index.html", import.meta.url), "utf8");
+  const app = await readFile(new URL("../static/app.js", import.meta.url), "utf8");
   assert.match(html, /id="navReport"[^>]*>Chess report</);
   assert.match(html, /id="navTacticsReport"[^>]*>Tactics report</);
   assert.match(html, /id="reportPage"/);
   assert.match(html, /id="tacticsReportPage"/);
   assert.match(html, /Your latest games, wrapped\./);
   assert.match(html, /Find the patterns behind your mistakes\./);
+  assert.match(html, /data-analysis-level="superquick"/);
+  assert.match(html, /data-report-game-limit="20"/);
+  assert.match(html, /data-report-game-limit="50"/);
+  assert.match(app, /analysisLevel: "superquick"/);
+  assert.match(app, /reportGameLimit: DEFAULT_REPORT_GAMES/);
 });
 
 test("report counts losses at 80 cp, ignores 79 cp, reports progress, and closes its engine", async () => {
@@ -232,7 +238,7 @@ test("Tactics Report omits Wrapped statistics and keeps tactical findings", asyn
   assert.equal(report.examples.length, 2);
 });
 
-test("Chess Report caps its Wrapped analysis at the latest 50 games", async () => {
+test("reports default to 20 games and can be expanded to 50", async () => {
   const { detail } = reportFixture();
   const firstFen = detail.frames[0].fen;
   const importedGames = {
@@ -244,7 +250,7 @@ test("Chess Report caps its Wrapped analysis at the latest 50 games", async () =
     })),
   };
   let detailCalls = 0;
-  const report = await buildChessReport({
+  const defaultReport = await buildChessReport({
     username: "Fixture",
     source: "pgn",
     reportMode: "wrapped",
@@ -256,9 +262,48 @@ test("Chess Report caps its Wrapped analysis at the latest 50 games", async () =
       close() {},
     }),
   });
-  assert.equal(report.games, 50);
-  assert.equal(report.wrapped.games, 50);
+  assert.equal(defaultReport.games, 20);
+  assert.equal(defaultReport.wrapped.games, 20);
+  assert.equal(defaultReport.gameLimit, 20);
+  assert.equal(detailCalls, 20);
+
+  detailCalls = 0;
+  const expandedReport = await buildChessReport({
+    username: "Fixture",
+    source: "pgn",
+    reportMode: "wrapped",
+    gameLimit: 50,
+    importedGames,
+    gameDetail: () => { detailCalls += 1; return detail; },
+    engineFactory: () => ({
+      async init() {},
+      async evaluate(fen) { return { bestmove: fen === firstFen ? "f2f3" : "g2g4", depth: 16, cp: 20, mate: null, pv: [] }; },
+      close() {},
+    }),
+  });
+  assert.equal(expandedReport.games, 50);
+  assert.equal(expandedReport.wrapped.games, 50);
+  assert.equal(expandedReport.gameLimit, 50);
   assert.equal(detailCalls, 50);
+
+  detailCalls = 0;
+  const tacticsReport = await buildChessReport({
+    username: "Fixture",
+    source: "pgn",
+    reportMode: "tactics",
+    gameLimit: 35,
+    importedGames,
+    gameDetail: () => { detailCalls += 1; return detail; },
+    engineFactory: () => ({
+      async init() {},
+      async evaluate(fen) { return { bestmove: fen === firstFen ? "f2f3" : "g2g4", depth: 16, cp: 20, mate: null, pv: [] }; },
+      close() {},
+    }),
+  });
+  assert.equal(tacticsReport.games, 35);
+  assert.equal(tacticsReport.gameLimit, 35);
+  assert.equal(tacticsReport.wrapped, null);
+  assert.equal(detailCalls, 35);
 });
 
 test("report flips a constrained result before classifying the opponent's reply", () => {

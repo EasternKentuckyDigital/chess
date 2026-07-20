@@ -67,10 +67,10 @@ must point at GitHub Pages before HTTPS can be enabled.
   standard starts plus knight, rook, and queen odds for either side, including
   an explicit promotion-piece choice that defaults to queen.
 - `static/lib/chess-report.js` powers two deliberately separate products. Chess
-  Report is a Wrapped-style accuracy and results overview for the latest 50
-  games. Tactics Report scans every public game from the last seven days or the
-  latest 50, whichever is larger, groups costly moves into tactical patterns,
-  and links the strongest patterns to labeled Lichess puzzle themes.
+  Report is a Wrapped-style accuracy and results overview for the latest 20
+  games by default. Tactics Report imports the last seven days or the selected
+  fallback count, then analyzes the newest 20 by default. Settings can expand
+  either report to 35 or 50 games, with an explicit runtime warning.
 - `static/lib/game-import.js` accepts Chess.com, Lichess, multi-game PGN files,
   and pasted SAN move notation for training decks and chess reports.
 - `static/config.js` contains public deployment configuration. Never put engine
@@ -116,10 +116,11 @@ vendored package with a newly verified RecklessWeb build.
 
 ## How training works
 
-- Training and Tactics Report use every public standard game from the last seven
-  days or the latest 50 games, whichever is larger. Chess Report summarizes the
-  latest 50 games. If an account has fewer than 50 total games, DoBackChess uses
-  everything available and says so explicitly. Missing usernames and accounts
+- Training uses every public standard game from the last seven days or the
+  selected fallback count, whichever is larger. Chess Report and Tactics Report
+  analyze the latest 20 games by default; Settings can raise either report to 35
+  or 50 games. If an account has fewer games, DoBackChess uses everything
+  available and says so explicitly. Missing usernames and accounts
   with no usable public games are separate error states.
 - Signed-in Google and email/password accounts retain a substantially larger
   deduplicated imported-game library through Firebase than guest/device
@@ -128,9 +129,11 @@ vendored package with a newly verified RecklessWeb build.
 - Free analysis uses Stockfish 18 or Reckless in the visitor's browser. The
   Reckless browser build is alpha software; it may need to download about 61.5
   MiB the first time it is initialized and remains entirely local. Settings
-  offer Quick (depth 16 / 400,000 nodes), Balanced (depth 18 / 750,000 nodes),
-  and Deep (depth 22 / 2,000,000 nodes); Balanced is the default. Every browser
-  feature is available in the free beta; there is no paid tier or upgrade prompt.
+  offer Super quick (depth 16 / 400,000 nodes), Quick (depth 17 / 550,000 nodes),
+  Balanced (depth 18 / 750,000 nodes), and Deep (depth 22 / 2,000,000 nodes).
+  Super quick is the default because it is the release-tested quality baseline.
+  Every browser feature is available in the free beta; there is no paid tier or
+  upgrade prompt.
 - Master decks are free. A master deck is built from a verified
   Chess.com grandmaster account in the titled-player directory or the featured
   master list, scanning that player's latest 100 public standard games.
@@ -198,22 +201,30 @@ end-to-end Tactics Report agreement, 99.69% precision for concrete report labels
 99.1% Stockfish puzzle solves, and 99.7% Reckless puzzle solves. Concrete report
 labels intentionally cover 33.13% of detected cases; ambiguous positions are
 shown as **Forcing calculation** instead of receiving a low-confidence motif.
-That held-out baseline is now the **Quick** setting. **Balanced**, the default,
-uses Stockfish depth 18 and 750,000 Reckless nodes; **Deep** uses depth 22 and
-2,000,000 nodes. The report loss cutoff remains 0.8 pawns. Exact top-move
+That held-out baseline is now the default **Super quick** setting. **Quick** uses
+depth 17 and 550,000 Reckless nodes, **Balanced** uses depth 18 and 750,000
+nodes, and **Deep** uses depth 22 and 2,000,000 nodes. The report loss cutoff
+remains 0.8 pawns. Exact top-move
 agreement is not expected to reach 100% because a shallow browser search can
 choose a strategically equivalent move outside the available Lichess MultiPV.
 
 The checked-in `lichess-level-*` results are smaller exploratory strength and
 timing cohorts from the same leading-file sample. They are useful smoke tests,
-not replacements for the held-out 1,000-case release gate. All three levels
+not replacements for the held-out 1,000-case release gate. All tested levels
 returned legal moves for every tested position, and the deeper levels took
 materially longer, which is why the Settings UI warns about CPU, battery, and
 wait time before a visitor selects them.
 
+A fresh 50-position held-out rerun for the default Super quick setting returned
+100% legal moves from both engines, 98% Stockfish and 100% Reckless puzzle solves,
+96% aggregate end-to-end Tactics Report agreement, and 100% precision for named
+report motifs. Its 25-position White-side report slice measured 92%, illustrating
+why the larger 1,000-case release gate above remains the quality reference.
+
 | Setting | Stockfish / Reckless limit | Sample per phase | Stockfish MultiPV / puzzle | Reckless MultiPV / puzzle | Wall time on test machine |
 | --- | --- | ---: | ---: | ---: | ---: |
-| Quick | depth 16 / 400,000 nodes | 50 | 98% / 100% | 98% / 98% | 46.20 s |
+| Super quick | depth 16 / 400,000 nodes | 50 | 98% / 100% | 98% / 98% | 46.20 s |
+| Quick | depth 17 / 550,000 nodes | 25 | 96% / 100% | 92% / 100% | Device-dependent |
 | Balanced | depth 18 / 750,000 nodes | 50 | 96% / 98% | 98% / 100% | 111.47 s |
 | Deep | depth 22 / 2,000,000 nodes | 25 | 100% / 96% | 100% / 96% | 266.50 s |
 
@@ -222,7 +233,7 @@ wait time before a visitor selects them.
 is half-sized and its percentages are correspondingly noisy. Timing includes
 both engines across evaluation and puzzle phases and is a relative local
 measurement, not a promise for other devices. Raw results are checked in as
-`benchmarks/lichess-level-{quick,balanced,deep}-2026-07-19.json`.
+`benchmarks/lichess-level-*-2026-07-*.json`.
 
 The report release gate is also enforced separately by blundering side. The
 held-out result is 96.6% for White and 95.0% for Black, preventing an aggregate

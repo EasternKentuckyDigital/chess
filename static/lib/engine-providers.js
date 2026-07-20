@@ -3,20 +3,21 @@ import { replayConfig } from "../config.js";
 export const SEARCH_DEPTH = 18;
 export const RECKLESS_NODE_LIMIT = Math.min(2_000_000, Math.max(1_000, Number(replayConfig.browserReckless?.nodes) || 750_000));
 export const ANALYSIS_LEVELS = Object.freeze({
-  quick: Object.freeze({ id: "quick", label: "Quick", stockfishDepth: 16, recklessNodes: 400_000, detail: "Fastest option, using the release-tested baseline." }),
+  superquick: Object.freeze({ id: "superquick", label: "Super quick", stockfishDepth: 16, recklessNodes: 400_000, detail: "Default release-tested baseline for fast local analysis." }),
+  quick: Object.freeze({ id: "quick", label: "Quick", stockfishDepth: 17, recklessNodes: 550_000, detail: "A little stronger while remaining responsive on most computers." }),
   balanced: Object.freeze({ id: "balanced", label: "Balanced", stockfishDepth: SEARCH_DEPTH, recklessNodes: RECKLESS_NODE_LIMIT, detail: "Recommended balance of strength and wait time." }),
   deep: Object.freeze({ id: "deep", label: "Deep", stockfishDepth: 22, recklessNodes: 2_000_000, detail: "Stronger analysis that can be several times slower." }),
 });
 
 export function normalizeAnalysisLevel(level) {
-  return ANALYSIS_LEVELS[level] ? level : "balanced";
+  return ANALYSIS_LEVELS[level] ? level : "superquick";
 }
 
-export function analysisLimits(level = "balanced") {
+export function analysisLimits(level = "superquick") {
   return ANALYSIS_LEVELS[normalizeAnalysisLevel(level)];
 }
 
-export function engineFingerprint(provider, level = "balanced") {
+export function engineFingerprint(provider, level = "superquick") {
   const limits = analysisLimits(level);
   return `${provider.fingerprint}:${limits.id}:${provider.id === "reckless-browser" ? `nodes-${limits.recklessNodes}` : `depth-${limits.stockfishDepth}`}`;
 }

@@ -1,6 +1,6 @@
 import { Chess } from "../vendor/chess/chess.js";
 import { createBoardArrows } from "./board-arrows.js";
-import { createEngine, engineDescriptor, isEngineCancellation } from "./engine-providers.js?v=19";
+import { createEngine, engineDescriptor, isEngineCancellation } from "./engine-providers.js?v=20";
 import { normalizePromotion, selectPromotionMove } from "./promotion.js";
 import { centipawnLoss } from "./engine-score.js";
 import { renderEvaluationBar } from "./eval-bar.js";

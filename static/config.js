@@ -9,7 +9,7 @@ const defaults = {
   accountApiBase: "",
   browserReckless: {
     // Reckless depth is not directly comparable to Stockfish depth. This is the
-    // Balanced fixed-node budget; Quick and Deep use their own tested limits.
+    // Balanced fixed-node budget; the other strength presets use tested limits.
     nodes: 750000,
   },
   firebase: {

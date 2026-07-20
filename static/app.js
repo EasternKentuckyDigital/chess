@@ -1,20 +1,20 @@
 import { Chess } from "./vendor/chess/chess.js";
-import { exportImportedGames, importGames, importPgnText, getGameDetail as buildGameDetail, reportSelectionCount, restoreImportedGames } from "./lib/game-import.js?v=19";
-import { ANALYSIS_LEVELS, analysisLimits, createEngine, engineDescriptor, engineDescriptors, engineFingerprint, isEngineCancellation, normalizeAnalysisLevel } from "./lib/engine-providers.js?v=19";
+import { DEFAULT_REPORT_GAMES, exportImportedGames, importGames, importPgnText, getGameDetail as buildGameDetail, normalizeReportGameLimit, reportSelectionCount, restoreImportedGames } from "./lib/game-import.js?v=20";
+import { ANALYSIS_LEVELS, analysisLimits, createEngine, engineDescriptor, engineDescriptors, engineFingerprint, isEngineCancellation, normalizeAnalysisLevel } from "./lib/engine-providers.js?v=20";
 import { activateDeviceProfile, clearProfileSession, continueAsGuest, createDeviceProfile, listDeviceProfiles, restoreProfileSession } from "./lib/profile-store.js";
 import { classifyPuzzleEligibility } from "./lib/puzzle-rules.js";
 import { createBoardArrows } from "./lib/board-arrows.js";
 import { FEATURED_MASTERS, fetchGrandmasterHandles } from "./lib/masters.js";
-import { initAnalysisBoard } from "./lib/analysis-board.js?v=19";
+import { initAnalysisBoard } from "./lib/analysis-board.js?v=20";
 import { cloudConfigured, createEmailAccount, initCloudSession, loadCloudJson, queueCloudJson, sendEmailPasswordReset, signInOrLink, signInWithEmail, signOutCloud } from "./lib/auth-sync.js";
-import { initEnginePlay } from "./lib/engine-play.js?v=19";
-import { buildChessReport } from "./lib/chess-report.js?v=19";
+import { initEnginePlay } from "./lib/engine-play.js?v=20";
+import { buildChessReport } from "./lib/chess-report.js?v=20";
 import { sideToMoveScore } from "./lib/engine-score.js";
 import { renderEvaluationBar } from "./lib/eval-bar.js";
-import { resolveSiteTheme } from "./lib/theme.js?v=19";
-import { retainedLibraryRecords } from "./lib/library-storage.js?v=19";
+import { resolveSiteTheme } from "./lib/theme.js?v=20";
+import { retainedLibraryRecords } from "./lib/library-storage.js?v=20";
 
-const ANALYSIS_VERSION = 12;
+const ANALYSIS_VERSION = 13;
 const DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_PREFS = {
   siteTheme: "system",
@@ -23,7 +23,8 @@ const DEFAULT_PREFS = {
   effectsEnabled: true,
   masterVolume: .65,
   engineProvider: "stockfish-browser",
-  analysisLevel: "balanced",
+  analysisLevel: "superquick",
+  reportGameLimit: DEFAULT_REPORT_GAMES,
 };
 
 const $ = selector => document.querySelector(selector);
@@ -93,6 +94,17 @@ function downloadProgressText({ loaded = 0, total = null }) {
 function libraryKey(source = state.source, username = state.username) { return `replay:library:${identityKey()}:${source}:${username.toLowerCase()}`; }
 function playedGamesKey() { return `replay:played-games:${identityKey()}`; }
 function reportKey(mode, source, username) { return `replay:report:${mode}:${identityKey()}:${source}:${username.toLowerCase()}`; }
+function limitedSavedRecords(records, scope) {
+  const gameLimit = normalizeReportGameLimit(state.prefs.reportGameLimit);
+  if (scope === "recent" || scope === "report") {
+    const cutoff = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
+    return records.slice(0, reportSelectionCount(records, record => record.summary?.endTime, cutoff, gameLimit));
+  }
+  if (scope === "wrapped") return records.slice(0, gameLimit);
+  if (scope === "latest") return records.slice(0, 20);
+  if (scope === "latest100") return records.slice(0, 100);
+  return records;
+}
 
 function loadJson(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
@@ -161,13 +173,13 @@ async function startStudy(username, source, scope = "recent", displayName = user
   try {
     let data;
     try {
-      data = await importGames({ username, source, scope });
+      data = await importGames({ username, source, scope, gameLimit: state.prefs.reportGameLimit });
       await persistGameLibrary({ data, username, source, scope });
     } catch (importError) {
       const localSaved = loadJson(libraryKey(source, username), null);
       const saved = await loadCloudJson(libraryKey(source, username), localSaved);
       if (!saved?.records?.length) throw importError;
-      const games = restoreImportedGames(saved.records);
+      const games = restoreImportedGames(limitedSavedRecords(saved.records, scope));
       data = { games, window: `${saved.window || "Saved games"} · offline copy` };
       showToast("The game service was unavailable, so DoBackChess opened your saved games.");
     }
@@ -365,26 +377,28 @@ async function runReportAnalysis({ mode = "wrapped", username, source, importedG
     let selectedGames = importedGames;
     if (!selectedGames) {
       try {
-        selectedGames = await importGames({ username, source, scope: mode === "wrapped" ? "wrapped" : "report" });
+        selectedGames = await importGames({ username, source, scope: mode === "wrapped" ? "wrapped" : "report", gameLimit: state.prefs.reportGameLimit });
       } catch (importError) {
         const key = libraryKey(source, username);
         const saved = await loadCloudJson(key, loadJson(key, null));
         if (!saved?.records?.length) throw importError;
-        const cutoff = Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60;
-        const selectedCount = mode === "wrapped" ? Math.min(50, saved.records.length) : reportSelectionCount(saved.records, record => record.summary?.endTime, cutoff);
-        const reportRecords = saved.records.slice(0, selectedCount);
+        const reportRecords = limitedSavedRecords(saved.records, mode === "wrapped" ? "wrapped" : "report");
         const games = restoreImportedGames(reportRecords);
         selectedGames = { games, window: `${saved.window || "Saved games"} · persistent copy` };
         showToast(`The game service was unavailable, so DoBackChess opened ${games.length} saved games.`);
       }
     }
     const retained = await persistGameLibrary({ data: selectedGames, username, source, scope: mode === "tactics" ? "tactics-report" : "report" });
-    if (selectedGames.notice) showToast(selectedGames.notice);
+    const analyzedGames = selectedGames.games.slice(0, state.prefs.reportGameLimit);
+    if (mode === "tactics" && selectedGames.games.length > analyzedGames.length) {
+      showToast(`Imported ${selectedGames.games.length} recent games; Tactics Report will analyze the newest ${analyzedGames.length}. Increase the report count in Settings for more history.`);
+    } else if (selectedGames.notice) showToast(selectedGames.notice);
     const report = await buildChessReport({
       username,
       source,
-      importedGames: selectedGames,
+      importedGames: { ...selectedGames, games: analyzedGames },
       analysisLevel: state.prefs.analysisLevel,
+      gameLimit: state.prefs.reportGameLimit,
       reportMode: mode,
       signal: controller.signal,
       onProgress: progress => {
@@ -481,7 +495,7 @@ function renderChessReport(report) {
     $("#wrappedGames").textContent = wrapped.games;
     $("#wrappedMoves").textContent = wrapped.moves.toLocaleString();
     $("#wrappedRecord").textContent = `${wrapped.wins} wins · ${wrapped.draws} draws · ${wrapped.losses} losses`;
-    $("#wrappedDescription").textContent = `Average move accuracy across your latest ${wrapped.games} analyzed ${wrapped.games === 1 ? "game" : "games"}, capped at 50.`;
+    $("#wrappedDescription").textContent = `Average move accuracy across your latest ${wrapped.games} analyzed ${wrapped.games === 1 ? "game" : "games"}, using your ${report.gameLimit}-game report setting.`;
   }
   $("#reportResults").classList.remove("hidden");
 }
@@ -1097,8 +1111,10 @@ function applyPreferences() {
   $$('[data-pieces]').forEach(button => button.classList.toggle("active", button.dataset.pieces === state.prefs.pieces));
   $$('[data-engine-provider]').forEach(button => button.classList.toggle("active", button.dataset.engineProvider === state.prefs.engineProvider));
   $$('[data-analysis-level]').forEach(button => button.classList.toggle("active", button.dataset.analysisLevel === state.prefs.analysisLevel));
+  $$('[data-report-game-limit]').forEach(button => button.classList.toggle("active", Number(button.dataset.reportGameLimit) === state.prefs.reportGameLimit));
   const level = analysisLimits(state.prefs.analysisLevel);
   $("#analysisLevelNote").textContent = `${level.label}: Stockfish depth ${level.stockfishDepth} · Reckless ${level.recklessNodes.toLocaleString()} nodes. ${level.detail}`;
+  $("#reportGameLimitNote").textContent = `${state.prefs.reportGameLimit} games per Chess Report or Tactics Report. Training still includes every game from the last 7 days when that is larger.`;
   const provider = engineDescriptor(state.prefs.engineProvider);
   if (!state.analyzing) $("#engineName").textContent = `${provider.name} runs fully in your browser`;
   if (state.puzzleChess) renderBoard();
@@ -1162,6 +1178,18 @@ $$('[data-analysis-level]').forEach(button => button.addEventListener("click", (
   state.prefs.analysisLevel = level;
   savePreferences();
   showToast(`${ANALYSIS_LEVELS[level].label} analysis selected. Stronger levels take longer.`);
+}));
+
+$$('[data-report-game-limit]').forEach(button => button.addEventListener("click", () => {
+  const gameLimit = normalizeReportGameLimit(button.dataset.reportGameLimit);
+  if (gameLimit === state.prefs.reportGameLimit) return;
+  if (state.reportAbortController) return showToast("Stop the current report before changing its game count.");
+  state.prefs.reportGameLimit = gameLimit;
+  savePreferences();
+  updateGameSourceUI();
+  updateReportSourceUI("wrapped");
+  updateReportSourceUI("tactics");
+  showToast(`${gameLimit} games selected for new reports. Larger reports take longer.`);
 }));
 
 $$('[data-pieces]').forEach(button => button.addEventListener("click", () => {
@@ -1304,6 +1332,7 @@ $("#logoutButton").addEventListener("click", leaveCurrentSession);
 function loadAccountPreferences() {
   state.prefs = { ...DEFAULT_PREFS, ...loadJson(prefsKey(), {}) };
   state.prefs.analysisLevel = normalizeAnalysisLevel(state.prefs.analysisLevel);
+  state.prefs.reportGameLimit = normalizeReportGameLimit(state.prefs.reportGameLimit);
   if (!canUseEngine(engineDescriptor(state.prefs.engineProvider))) state.prefs.engineProvider = DEFAULT_PREFS.engineProvider;
   applyPreferences();
 }
@@ -1487,7 +1516,7 @@ function updateGameSourceUI() {
   $("#username").required = !isPgn;
   $("#sourcePrefix").textContent = source === "lichess" ? "lichess.org/@/" : "chess.com/";
   $("#importForm button span").textContent = isPgn ? "Upload games" : "Build deck";
-  $("#searchScopeText").textContent = isPgn ? "Upload a .pgn/.txt file or paste tournament move notation" : "Every game from the last 7 days or the latest 50, whichever is larger";
+  $("#searchScopeText").textContent = isPgn ? "Upload a .pgn/.txt file or paste tournament move notation" : `Every game from the last 7 days or the latest ${state.prefs.reportGameLimit}, whichever is larger`;
   $("#heroError").textContent = "";
 }
 
@@ -1497,7 +1526,9 @@ function updateReportSourceUI(mode = "wrapped") {
   $(ui.username).classList.toggle("hidden", isPgn);
   $(ui.username).required = !isPgn;
   $(`${ui.form} button`).textContent = isPgn ? "Upload games" : mode === "tactics" ? "Build Tactics Report" : "Build Chess Report";
-  const scope = mode === "tactics" ? "Every game from the last 7 days or the latest 50, whichever is larger" : "Your latest 50 public games, or every available game when fewer than 50 exist";
+  const scope = mode === "tactics"
+    ? `Your latest ${state.prefs.reportGameLimit} selected games, with the import filled from the last 7 days first`
+    : `Your latest ${state.prefs.reportGameLimit} public games, or every available game when fewer exist`;
   $(ui.scope).textContent = isPgn ? "Upload a .pgn/.txt file or paste tournament move notation" : scope;
   $(ui.error).textContent = "";
 }

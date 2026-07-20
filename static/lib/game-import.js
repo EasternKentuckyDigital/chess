@@ -1,7 +1,8 @@
 import { Chess } from "../vendor/chess/chess.js";
 
 const WEEK_SECONDS = 7 * 24 * 60 * 60;
-export const REPORT_MIN_GAMES = 50;
+export const DEFAULT_REPORT_GAMES = 20;
+export const MAX_REPORT_GAMES = 50;
 const records = new Map();
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -135,12 +136,19 @@ async function chessComRecord(raw, username) {
   return { id, username, pgn: raw.pgn, url: raw.url || "", summary };
 }
 
-export function reportSelectionCount(items, timestamp, cutoff) {
-  const recentCount = items.filter(item => Number(timestamp(item)) >= cutoff).length;
-  return Math.min(items.length, Math.max(REPORT_MIN_GAMES, recentCount));
+export function normalizeReportGameLimit(value = DEFAULT_REPORT_GAMES) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return DEFAULT_REPORT_GAMES;
+  return Math.max(DEFAULT_REPORT_GAMES, Math.min(MAX_REPORT_GAMES, parsed));
 }
 
-async function importChessCom(username, scope = "recent") {
+export function reportSelectionCount(items, timestamp, cutoff, gameLimit = DEFAULT_REPORT_GAMES) {
+  const minimumGames = normalizeReportGameLimit(gameLimit);
+  const recentCount = items.filter(item => Number(timestamp(item)) >= cutoff).length;
+  return Math.min(items.length, Math.max(minimumGames, recentCount));
+}
+
+async function importChessCom(username, scope = "recent", gameLimit = DEFAULT_REPORT_GAMES) {
   const base = `https://api.chess.com/pub/player/${encodeURIComponent(username.toLowerCase())}`;
   const archives = (await fetchJson(`${base}/games/archives`)).archives || [];
   if (!archives.length) {
@@ -151,8 +159,9 @@ async function importChessCom(username, scope = "recent") {
     };
   }
 
+  const minimumGames = normalizeReportGameLimit(gameLimit);
   const cutoff = Math.floor(Date.now() / 1000) - WEEK_SECONDS;
-  const latestLimit = scope === "latest100" ? 100 : scope === "wrapped" ? REPORT_MIN_GAMES : scope === "latest" ? 20 : null;
+  const latestLimit = scope === "latest100" ? 100 : scope === "wrapped" ? minimumGames : scope === "latest" ? 20 : null;
   const reportMode = scope === "report";
   const rollingWindow = reportMode || scope === "recent";
   const rawGames = [];
@@ -160,12 +169,12 @@ async function importChessCom(username, scope = "recent") {
     const monthGames = (await fetchJson(archiveUrl)).games || [];
     rawGames.push(...[...monthGames].reverse());
     const oldest = Math.min(...monthGames.map(game => Number(game.end_time) || Number.POSITIVE_INFINITY));
-    if (rollingWindow ? rawGames.length >= REPORT_MIN_GAMES && oldest < cutoff : rawGames.length >= latestLimit) break;
+    if (rollingWindow ? rawGames.length >= minimumGames && oldest < cutoff : rawGames.length >= latestLimit) break;
   }
 
   const recent = rawGames.filter(game => Number(game.end_time) >= cutoff);
   const selected = rollingWindow
-    ? rawGames.slice(0, reportSelectionCount(rawGames, game => game.end_time, cutoff))
+    ? rawGames.slice(0, reportSelectionCount(rawGames, game => game.end_time, cutoff, minimumGames))
     : rawGames.slice(0, latestLimit);
   const games = [];
   for (const raw of selected) {
@@ -175,19 +184,20 @@ async function importChessCom(username, scope = "recent") {
   return {
     games,
     window: rollingWindow
-      ? (recent.length >= REPORT_MIN_GAMES ? `Last 7 days · ${games.length} games` : games.length < REPORT_MIN_GAMES ? `All ${games.length} available games` : `Latest ${REPORT_MIN_GAMES} games`)
+      ? (recent.length >= minimumGames ? `Last 7 days · ${games.length} games` : games.length < minimumGames ? `All ${games.length} available games` : `Latest ${minimumGames} games`)
       : games.length < latestLimit ? `All ${games.length} available games` : `Latest ${latestLimit} games`,
     notice: rollingWindow
-      ? `${reportMode ? "Chess Report" : "Training"} selected ${games.length} games: ${recent.length >= REPORT_MIN_GAMES ? "every public standard game from the last 7 days" : `the latest ${Math.min(REPORT_MIN_GAMES, games.length)}`}.`
+      ? `${reportMode ? "Tactics Report" : "Training"} selected ${games.length} games: ${recent.length >= minimumGames ? "every public standard game from the last 7 days" : `the latest ${Math.min(minimumGames, games.length)}`}.`
       : scope === "wrapped" ? `Chess Report selected the latest ${games.length} public standard ${games.length === 1 ? "game" : "games"}.` : "",
     emptyMessage: "That Chess.com account was found, but DoBackChess could not import any public standard chess games.",
   };
 }
 
-async function importLichess(username, scope = "recent") {
+async function importLichess(username, scope = "recent", gameLimit = DEFAULT_REPORT_GAMES) {
   await fetchJson(`https://lichess.org/api/user/${encodeURIComponent(username)}`);
+  const minimumGames = normalizeReportGameLimit(gameLimit);
   const cutoffMs = Date.now() - WEEK_SECONDS * 1000;
-  const latestLimit = scope === "latest100" ? 100 : scope === "wrapped" ? REPORT_MIN_GAMES : scope === "latest" ? 20 : null;
+  const latestLimit = scope === "latest100" ? 100 : scope === "wrapped" ? minimumGames : scope === "latest" ? 20 : null;
   const reportMode = scope === "report";
   const rollingWindow = reportMode || scope === "recent";
   const params = new URLSearchParams({
@@ -201,9 +211,9 @@ async function importLichess(username, scope = "recent") {
   const base = `https://lichess.org/api/games/user/${encodeURIComponent(username)}`;
   let pgns = splitPgnGames(await fetchText(`${base}?${params}`));
   const recentCount = pgns.length;
-  if (rollingWindow && pgns.length < REPORT_MIN_GAMES) {
+  if (rollingWindow && pgns.length < minimumGames) {
     params.delete("since");
-    params.set("max", String(REPORT_MIN_GAMES));
+    params.set("max", String(minimumGames));
     pgns = splitPgnGames(await fetchText(`${base}?${params}`));
   }
 
@@ -239,10 +249,10 @@ async function importLichess(username, scope = "recent") {
   return {
     games,
     window: rollingWindow
-      ? (recentCount >= REPORT_MIN_GAMES ? `Last 7 days · ${games.length} games` : games.length < REPORT_MIN_GAMES ? `All ${games.length} available games` : `Latest ${REPORT_MIN_GAMES} games`)
+      ? (recentCount >= minimumGames ? `Last 7 days · ${games.length} games` : games.length < minimumGames ? `All ${games.length} available games` : `Latest ${minimumGames} games`)
       : games.length < latestLimit ? `All ${games.length} available games` : `Latest ${latestLimit} games`,
     notice: rollingWindow
-      ? `${reportMode ? "Chess Report" : "Training"} selected ${games.length} games: ${recentCount >= REPORT_MIN_GAMES ? "every public standard game from the last 7 days" : `the latest ${Math.min(REPORT_MIN_GAMES, games.length)}`}.`
+      ? `${reportMode ? "Tactics Report" : "Training"} selected ${games.length} games: ${recentCount >= minimumGames ? "every public standard game from the last 7 days" : `the latest ${Math.min(minimumGames, games.length)}`}.`
       : scope === "wrapped" ? `Chess Report selected the latest ${games.length} public standard ${games.length === 1 ? "game" : "games"}.` : "",
     emptyMessage: "That Lichess account was found, but DoBackChess could not import any public standard chess games.",
   };
@@ -306,11 +316,11 @@ export async function importPgnText({ text, playerName = "", fallbackColor = "wh
   };
 }
 
-export async function importGames({ username: rawUsername, source = "chesscom", scope = "recent" }) {
+export async function importGames({ username: rawUsername, source = "chesscom", scope = "recent", gameLimit = DEFAULT_REPORT_GAMES }) {
   const username = cleanUsername(rawUsername);
   records.clear();
-  if (source === "chesscom") return importChessCom(username, scope);
-  if (source === "lichess") return importLichess(username, scope);
+  if (source === "chesscom") return importChessCom(username, scope, gameLimit);
+  if (source === "lichess") return importLichess(username, scope, gameLimit);
   throw new Error("Choose Chess.com or Lichess as the game source.");
 }
 

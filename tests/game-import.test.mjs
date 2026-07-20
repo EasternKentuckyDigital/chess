@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getGameDetail, importPgnText, reportSelectionCount, splitPgnGames } from "../static/lib/game-import.js";
+import { getGameDetail, importPgnText, normalizeReportGameLimit, reportSelectionCount, splitPgnGames } from "../static/lib/game-import.js";
 
 const TOURNAMENT_PGN = `[Event "County Championship"]
 [Site "Lexington, KY"]
@@ -45,11 +45,15 @@ test("rejects empty and unplayable tournament input with explicit messages", asy
   await assert.rejects(importPgnText({ text: "This is not a chess score" }), /legal standard chess game/);
 });
 
-test("training and tactics reports choose all seven-day games or the latest 50, whichever is larger", () => {
+test("training uses a configurable 20-to-50 game floor while retaining larger seven-day sets", () => {
   const cutoff = 1_000;
   const sixtyRecent = Array.from({ length: 80 }, (_, index) => ({ ended: index < 60 ? 1_200 : 900 }));
-  const twentyRecent = Array.from({ length: 80 }, (_, index) => ({ ended: index < 20 ? 1_200 : 900 }));
+  const tenRecent = Array.from({ length: 80 }, (_, index) => ({ ended: index < 10 ? 1_200 : 900 }));
   assert.equal(reportSelectionCount(sixtyRecent, game => game.ended, cutoff), 60);
-  assert.equal(reportSelectionCount(twentyRecent, game => game.ended, cutoff), 50);
-  assert.equal(reportSelectionCount(twentyRecent.slice(0, 32), game => game.ended, cutoff), 32);
+  assert.equal(reportSelectionCount(tenRecent, game => game.ended, cutoff), 20);
+  assert.equal(reportSelectionCount(tenRecent, game => game.ended, cutoff, 50), 50);
+  assert.equal(reportSelectionCount(tenRecent.slice(0, 32), game => game.ended, cutoff, 50), 32);
+  assert.equal(normalizeReportGameLimit(10), 20);
+  assert.equal(normalizeReportGameLimit(35), 35);
+  assert.equal(normalizeReportGameLimit(99), 50);
 });
