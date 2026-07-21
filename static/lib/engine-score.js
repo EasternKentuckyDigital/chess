@@ -28,6 +28,17 @@ export function whitePerspectiveScore(result, fen) {
   return sideToMoveScore(result) * sideToMoveFactor(fen);
 }
 
+/** Format an engine result from White's point of view for saved puzzle cards. */
+export function formatWhitePerspectiveEvaluation(result, fen) {
+  const factor = sideToMoveFactor(fen);
+  if (result?.mate !== null && result?.mate !== undefined) {
+    const mate = Number(result.mate) * factor;
+    return mate > 0 ? `Mate in ${mate}` : `Mated in ${Math.abs(mate)}`;
+  }
+  const pawns = (Number(result?.cp) || 0) * factor / 100;
+  return `${pawns >= 0 ? "+" : "−"}${Math.abs(pawns).toFixed(1)}`;
+}
+
 /** Convert a Lichess White-perspective centipawn value to UCI side-to-move form. */
 export function lichessCentipawnsToSideToMove(cp, fen) {
   const value = Number(cp);

@@ -2,8 +2,10 @@ import { Chess } from "../vendor/chess/chess.js";
 import { createBoardArrows } from "./board-arrows.js";
 import { createEngine, engineDescriptor, isEngineCancellation } from "./engine-providers.js?v=21";
 import { normalizePromotion, selectPromotionMove } from "./promotion.js";
-import { centipawnLoss } from "./engine-score.js";
+import { centipawnLoss, sideToMoveScore } from "./engine-score.js";
 import { renderEvaluationBar } from "./eval-bar.js";
+import { classifyPuzzleEligibility } from "./puzzle-rules.js";
+import { aggregateRecommendations, classifyTactic, ensureTacticClassifier } from "./chess-detect.js";
 
 const PIECES = ["wK", "wQ", "wR", "wB", "wN", "wP", "bK", "bQ", "bR", "bB", "bN", "bP"];
 
@@ -46,7 +48,7 @@ function pvToSan(fen, pv) {
   return line.join(" ");
 }
 
-export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisLevel = () => "balanced", onSound = () => {} }) {
+export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisLevel = () => "balanced", onSound = () => {}, onPracticePuzzles = () => {} }) {
   const $ = selector => document.querySelector(selector);
   const state = {
     chess: new Chess(),
@@ -60,6 +62,8 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     cursor: 0,
     headers: {},
     moveAnalyses: [],
+    findings: [],
+    puzzles: [],
     positionAnalyses: new Map(),
     accuracyRunning: false,
     accuracyRunToken: 0,
@@ -203,6 +207,8 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
   function clearGameAnalysis() {
     if (state.accuracyRunning) state.accuracyRunToken += 1;
     state.moveAnalyses = [];
+    state.findings = [];
+    state.puzzles = [];
     state.positionAnalyses.clear();
     $("#analysisAccuracySummary").classList.add("hidden");
     $("#analysisAccuracySummary").innerHTML = "";
@@ -211,7 +217,55 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     $("#analysisAccuracyNote").textContent = "Click any move to revisit that position. Accuracy is measured locally from engine loss.";
     $("#analysisEngineEval").textContent = "—";
     $("#analysisEngineLine").textContent = "—";
+    renderInsights();
     renderEvaluationBar($("#analysisEvalBar"), null, state.chess.fen(), state.flipped);
+  }
+
+  function reviewDetail() {
+    const chess = new Chess(state.rootFen);
+    const frames = [{ fen: chess.fen() }];
+    const moves = [];
+    state.moves.forEach((move, index) => {
+      const legal = findMove(chess, move.uci);
+      if (!legal) return;
+      const played = chess.move({ from: legal.from, to: legal.to, promotion: legal.promotion });
+      moves.push({ ply: index + 1, uci: move.uci, san: played.san, fen: chess.fen() });
+      frames.push({ fen: chess.fen() });
+    });
+    return { frames, moves, headers: { ...state.headers } };
+  }
+
+  function analysisGame() {
+    const black = state.headers.Black || "Black";
+    const headerDate = state.headers.Date || "";
+    const id = `analysis:${state.rootFen}:${state.moves.map(move => move.uci).join("-")}`;
+    return {
+      id,
+      playerColor: "white",
+      opponent: black,
+      date: headerDate && !headerDate.startsWith("?") ? headerDate : "Imported game",
+      timeClass: "Analysis",
+      result: state.headers.Result || "*",
+      opening: state.headers.Opening || "Imported game",
+      url: "",
+    };
+  }
+
+  function renderInsights() {
+    const panel = $("#analysisInsights");
+    if (!panel) return;
+    if (!state.findings.length) {
+      panel.innerHTML = `<div class="analysis-card-heading"><span class="panel-kicker">Missed-tactic review</span><span>chess_detect</span></div><p>Import or play a game, then choose <strong>Review game</strong>. Costly moves become practice positions and detected themes link to matching Lichess puzzle themes.</p>`;
+      return;
+    }
+    const recommendations = aggregateRecommendations(state.findings);
+    const themes = recommendations.length
+      ? recommendations.slice(0, 4).map(item => `<a class="analysis-theme-link" href="${item.url}" target="_blank" rel="noreferrer"><strong>${escapeHtml(item.label)}</strong><span>${item.count} missed ${item.count === 1 ? "chance" : "chances"} · Lichess puzzles ↗</span></a>`).join("")
+      : `<p class="analysis-insights-empty">No named Lichess tactic repeated; the engine still found concrete improvements.</p>`;
+    const examples = state.findings.slice().sort((left, right) => right.loss - left.loss).slice(0, 5)
+      .map(item => `<li><span>Move ${item.moveNumber} · ${escapeHtml(item.playedSan)}</span><strong>${escapeHtml(item.tagline)}</strong><small>${(item.loss / 100).toFixed(1)} pawn loss · best ${escapeHtml(item.bestSan)}</small></li>`).join("");
+    panel.innerHTML = `<div class="analysis-card-heading"><span class="panel-kicker">Missed-tactic review</span><strong>${state.puzzles.length} practice ${state.puzzles.length === 1 ? "position" : "positions"}</strong></div><div class="analysis-theme-links">${themes}</div><ol class="analysis-finding-list">${examples}</ol>${state.puzzles.length ? `<button id="analysisPracticeButton" class="primary-button full-button" type="button">Practice positions from this game</button>` : ""}`;
+    $("#analysisPracticeButton")?.addEventListener("click", () => onPracticePuzzles({ puzzles: state.puzzles, game: analysisGame(), detail: reviewDetail() }));
   }
 
   function positionChanged(message = "Position changed") {
@@ -517,7 +571,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
       if (token !== state.accuracyRunToken) return;
       accuracyEngine = createEngine(descriptor.id, { level: getAnalysisLevel() });
       state.accuracyEngine = accuracyEngine;
-      await accuracyEngine.init();
+      await Promise.all([accuracyEngine.init(), ensureTacticClassifier()]);
       const chess = new Chess(state.rootFen);
       const totalEvaluations = state.moves.length * 2 + 1;
       let completed = 0;
@@ -535,12 +589,62 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
         const played = await accuracyEngine.evaluate(beforeFen, move.uci);
         completed += 1;
         const loss = centipawnLoss(best, played);
-        state.moveAnalyses[index] = { color, loss, accuracy: moveAccuracy(loss), bestmove: best.bestmove, played: move.uci };
+        const prior = state.moves[index - 1];
+        const previousMove = prior ? { from: prior.uci.slice(0, 2), to: prior.uci.slice(2, 4), wasCapture: prior.san.includes("x") } : undefined;
+        const positional = loss >= 80 ? classifyTactic(beforeFen, best.bestmove, { previousMove }) : null;
+        const finding = positional ? {
+          ...positional,
+          loss,
+          moveNumber: Math.floor(index / 2) + 1,
+          color,
+          played: move.uci,
+          playedSan: move.san,
+          bestSan: positional.san || best.bestmove,
+        } : null;
+        if (finding) state.findings.push(finding);
+        const eligibility = classifyPuzzleEligibility({
+          bestValue: sideToMoveScore(best),
+          playedValue: sideToMoveScore(played),
+          bestMate: best.mate,
+          playedMate: played.mate,
+        });
+        if (eligibility.eligible) {
+          const game = analysisGame();
+          state.puzzles.push({
+            id: `${game.id}:${index + 1}:${eligibility.category.toLowerCase().replaceAll(" ", "-")}`,
+            gameId: game.id,
+            ply: index + 1,
+            moveNumber: Math.floor(index / 2) + 1,
+            fen: beforeFen,
+            category: eligibility.category,
+            loss: Math.min(eligibility.loss, 100000),
+            impact: Math.min(eligibility.loss, 100000),
+            best: best.bestmove,
+            bestSan: positional?.san || best.bestmove,
+            bestEval: resultText(best, beforeFen),
+            bestPv: pvToSan(beforeFen, best.pv),
+            played: move.uci,
+            playedSan: move.san,
+            playedEval: resultText(played, beforeFen),
+            bestResult: { cp: best.cp, mate: best.mate },
+            engineName: descriptor.name,
+            positionalTagline: positional?.tagline || "Concrete best move",
+            positionalMotifs: positional?.motifIds || [],
+            lichessRecommendations: positional?.recommendations || [],
+            game: {
+              ...game,
+              playerColor: color === "w" ? "white" : "black",
+              opponent: color === "w" ? (state.headers.Black || "Black") : (state.headers.White || "White"),
+            },
+          });
+        }
+        state.moveAnalyses[index] = { color, loss, accuracy: moveAccuracy(loss), bestmove: best.bestmove, played: move.uci, positional };
         const legal = findMove(chess, move.uci);
         if (!legal) throw new Error(`Move ${move.san} is no longer legal from the imported position.`);
         chess.move({ from: legal.from, to: legal.to, promotion: legal.promotion });
         progressBar.style.width = `${Math.round((completed / totalEvaluations) * 100)}%`;
         renderAccuracySummary();
+        renderInsights();
         renderNotation();
         if (state.cursor === index) showSavedPositionAnalysis();
       }
@@ -553,6 +657,8 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
         renderNotation();
         if (!state.liveEngine) showSavedPositionAnalysis();
         $("#analysisAccuracyNote").textContent = `DoBackChess accuracy uses ${descriptor.name} centipawn loss: 100 × e^(−loss ÷ 400). Click a move to see its saved evaluation.`;
+        state.puzzles.sort((left, right) => right.impact - left.impact);
+        renderInsights();
       }
     } catch (error) {
       if (token === state.accuracyRunToken) $("#analysisAccuracyNote").textContent = error.message || "Accuracy measurement failed.";
@@ -561,9 +667,10 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
       if (state.accuracyEngine === accuracyEngine) state.accuracyEngine = null;
       const stopped = token !== state.accuracyRunToken;
       state.accuracyRunning = false;
-      button.textContent = "Measure accuracy";
+      button.textContent = "Review game";
       button.disabled = !state.moves.length;
       engineButton.disabled = false;
+      progress.classList.add("hidden");
       if (stopped && state.moves.length) $("#analysisAccuracyNote").textContent = "Accuracy measurement stopped. Run it again when ready.";
     }
   }

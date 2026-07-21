@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>DoBackChess — Free Browser Chess Analysis &amp; Tactics Training</title>
-  <meta name="description" content="Analyze Chess.com, Lichess, and PGN games in your browser. Build chess and tactics reports, train mistakes, and play Stockfish or Reckless for free.">
+  <title>DoBackChess — Analyze Games, Review Mistakes, Play Engines</title>
+  <meta name="description" content="A focused browser chess tool: analyze a PGN or FEN, review 20–50 games for missed tactics, turn your games into puzzles, and play engines with odds.">
   <meta name="application-name" content="DoBackChess">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <link rel="canonical" href="https://dobackchess.com/">
@@ -13,8 +13,8 @@
   <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="DoBackChess">
-  <meta property="og:title" content="DoBackChess — Free Browser Chess Analysis &amp; Tactics Training">
-  <meta property="og:description" content="Turn your Chess.com, Lichess, and PGN games into private browser analysis, chess reports, and tactics training.">
+  <meta property="og:title" content="DoBackChess — Analyze, Review, Play">
+  <meta property="og:description" content="Analyze one game, review 20–50 games, practice missed tactics, or play an engine with odds.">
   <meta property="og:url" content="https://dobackchess.com/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="DoBackChess — Free Browser Chess Analysis">
@@ -25,7 +25,7 @@
       "@type": "WebApplication",
       "name": "DoBackChess",
       "url": "https://dobackchess.com/",
-      "description": "Free browser chess analysis, reports, tactics training, and engine play using Chess.com, Lichess, or PGN games.",
+      "description": "Browser chess analysis for PGN and FEN positions, 20–50 game reviews, missed-tactic puzzles, and engine games with odds.",
       "applicationCategory": "EducationalApplication",
       "operatingSystem": "Any",
       "isAccessibleForFree": true,
@@ -41,20 +41,15 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=21">
+  <link rel="stylesheet" href="./styles.css?v=23">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#" id="brandHome">DoBackChess</a>
+    <a class="brand" href="#analysis" id="brandHome">DoBackChess</a>
     <nav class="main-nav" aria-label="Primary navigation">
-      <button id="navHome" class="nav-item active">Home</button>
-      <button id="navMasters" class="nav-item">Masters</button>
-      <button id="navAnalysis" class="nav-item">Analysis</button>
-      <button id="navPlay" class="nav-item">Play</button>
-      <button id="navReport" class="nav-item">Chess report</button>
-      <button id="navTacticsReport" class="nav-item">Tactics report</button>
-      <button id="navAbout" class="nav-item">About</button>
-      <button id="navTraining" class="nav-item hidden">Training</button>
+      <button id="navPlay" class="nav-item">Play engines</button>
+      <button id="navAnalysis" class="nav-item active">Analysis board</button>
+      <button id="navReview" class="nav-item">Review games</button>
     </nav>
     <div class="top-actions">
       <span class="engine-pill"><span class="engine-dot"></span><span id="engineName">Stockfish loads in your browser</span></span>
@@ -64,7 +59,7 @@
   </header>
 
   <main>
-    <section class="landing" id="hero">
+    <section class="landing hidden" id="hero" aria-hidden="true">
       <div class="landing-intro">
         <span class="eyebrow"><span></span> Personal chess study</span>
         <h1>Train from your games.</h1>
@@ -86,13 +81,15 @@
     </section>
 
     <section id="analysisPage" class="analysis-page hidden">
+      <div class="focused-page-heading"><span class="eyebrow"><span></span> One game or position</span><h1>Analysis board</h1><p>Import PGN, paste FEN, or build a position on the board. Stockfish measures the game; chess_detect explains the tactics you missed.</p></div>
       <div class="analysis-toolbar analysis-toolbar-primary" aria-label="Analysis board controls"><button id="analysisPgnButton" class="secondary-button">Import PGN</button><button id="analysisResetButton" class="secondary-button">Starting position</button><button id="analysisUndoButton" class="secondary-button">Undo</button><button id="analysisFlipButton" class="secondary-button">Flip</button><button id="analysisEditButton" class="secondary-button">Edit position</button></div>
       <div class="analysis-workspace">
         <section class="analysis-board-column"><div class="analysis-board-frame"><div id="analysisEvalBar" class="eval-bar equal" role="meter" aria-label="Position evaluation" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"><div class="eval-bar-white"></div><span class="eval-bar-label">—</span></div><div id="analysisBoardShell" class="board-shell analysis-board-shell theme-brown"><div id="analysisBoard" class="board analysis-board" aria-label="General analysis chess board"></div><svg id="analysisArrows" class="arrows" viewBox="0 0 800 800" preserveAspectRatio="none" aria-hidden="true"></svg></div></div><div id="analysisBoardError" class="inline-error" role="alert"></div></section>
         <aside class="analysis-sidebar">
           <section id="analysisEditor" class="analysis-card hidden"><div class="analysis-card-heading"><span class="panel-kicker">Position editor</span><button id="analysisClearButton" class="text-button">Clear board</button></div><div id="analysisPalette" class="analysis-palette"></div><label>Side to move<select id="analysisTurn"><option value="w">White</option><option value="b">Black</option></select></label><label>FEN<div class="fen-row"><input id="analysisFen" spellcheck="false"><button id="analysisLoadFenButton" class="secondary-button">Set</button></div></label><p>Use the palette and board for visual editing. FEN gives full control of castling and en-passant rights.</p></section>
           <section class="analysis-card engine-analysis-card"><div class="analysis-card-heading"><span class="panel-kicker">Engine analysis</span><button id="analyzePositionButton" class="primary-button">Start engine</button></div><div class="analysis-evaluation"><strong id="analysisEngineEval">—</strong><span id="analysisEngineResult">Engine is paused.</span></div><div class="engine-line"><span>Best continuation</span><strong id="analysisEngineLine">—</strong></div><label>Promote pawns to<select id="analysisPromotion"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select></label></section>
-          <section class="analysis-card notation-analysis-card"><div class="analysis-card-heading notation-card-heading"><span class="panel-kicker">Move notation</span><button id="analysisAccuracyButton" class="text-button" disabled>Measure accuracy</button></div><div id="analysisAccuracySummary" class="accuracy-summary hidden"></div><div id="analysisAccuracyProgress" class="accuracy-progress hidden"><span></span></div><p id="analysisAccuracyNote" class="accuracy-note">Click any move to revisit that position. Accuracy is measured locally from engine loss.</p><div id="analysisNotation" class="analysis-notation"><p>Play moves or import PGN to build notation.</p></div></section>
+          <section class="analysis-card notation-analysis-card"><div class="analysis-card-heading notation-card-heading"><span class="panel-kicker">Move notation</span><button id="analysisAccuracyButton" class="text-button" disabled>Review game</button></div><div id="analysisAccuracySummary" class="accuracy-summary hidden"></div><div id="analysisAccuracyProgress" class="accuracy-progress hidden"><span></span></div><p id="analysisAccuracyNote" class="accuracy-note">Click any move to revisit that position. Review runs locally and finds missed tactics.</p><div id="analysisNotation" class="analysis-notation"><p>Play moves or import PGN to build notation.</p></div></section>
+          <section id="analysisInsights" class="analysis-card analysis-insights"><div class="analysis-card-heading"><span class="panel-kicker">Missed-tactic review</span><span>chess_detect</span></div><p>Import or play a game, then choose <strong>Review game</strong>. Costly moves become practice positions and detected themes link to matching Lichess puzzle themes.</p></section>
         </aside>
       </div>
     </section>
@@ -125,14 +122,14 @@
     <section id="tacticsReportPage" class="report-page hidden">
       <div class="report-hero">
         <div class="report-intro">
-          <span class="eyebrow"><span></span> Tactics Report</span><h1>Find the patterns behind your mistakes.</h1><p>Analyze public games or upload tournament scores. DoBackChess identifies costly tactical decisions, groups them by theme, and turns them into a focused practice plan.</p>
-          <form id="tacticsReportForm" class="report-form"><select id="tacticsReportSource" aria-label="Tactics Report game source"><option value="chesscom">Chess.com</option><option value="lichess">Lichess</option><option value="pgn">PGN / notation</option></select><input id="tacticsReportUsername" required minlength="2" maxlength="30" placeholder="username" autocomplete="username"><button class="primary-button" type="submit">Build Tactics Report</button></form>
+          <span class="eyebrow"><span></span> 20–50 game review</span><h1>Find the patterns behind your mistakes.</h1><p>Import a Chess.com or Lichess account, or upload a PGN collection. Stockfish measures every game; chess_detect tags missed tactics, recommends matching Lichess themes, and creates puzzles from your own positions.</p>
+          <form id="tacticsReportForm" class="report-form"><select id="tacticsReportSource" aria-label="Review game source"><option value="chesscom">Chess.com</option><option value="lichess">Lichess</option><option value="pgn">PGN / notation</option></select><input id="tacticsReportUsername" required minlength="2" maxlength="30" placeholder="username" autocomplete="username"><select id="reviewGameLimit" aria-label="Games to review"><option value="20">20 games</option><option value="35">35 games</option><option value="50">50 games</option></select><button class="primary-button" type="submit">Review games</button></form>
           <div class="search-meta report-search-meta"><span id="tacticsReportScopeText">Your latest 20 selected games, with the import filled from the last 7 days first</span><span id="tacticsReportError" class="inline-error" role="alert"></span></div>
           <div id="tacticsReportProgress" class="report-progress hidden"><div><span class="loader"></span><strong id="tacticsReportProgressText">Preparing Stockfish…</strong><button id="stopTacticsReportButton" class="secondary-button analysis-stop-button" type="button">Stop analysis</button></div><div class="progress-track"><span id="tacticsReportProgressBar"></span></div></div>
-          <div class="tier-summary report-summary-cards"><article><span>Actionable</span><strong>Recurring tactical weaknesses</strong><small>See the mistakes and themes with the highest training value.</small></article><article><span>Flexible</span><strong>Accounts, PGN files, or notation</strong><small>Use Chess.com, Lichess, or real tournament scores.</small></article></div>
+          <div class="tier-summary report-summary-cards"><article><span>Private</span><strong>Local engine review</strong><small>Your games and positions stay in this browser.</small></article><article><span>Actionable</span><strong>Two kinds of practice</strong><small>Train your own missed positions or open tagged Lichess puzzles.</small></article></div>
         </div>
       </div>
-      <div id="tacticsReportResults" class="report-results hidden"><section class="report-summary"><div><strong id="tacticsReportGames">0</strong><span>games</span></div><div><strong id="tacticsReportPositions">0</strong><span>positions checked</span></div><div><strong id="tacticsReportMistakes">0</strong><span>costly mistakes</span></div></section><div class="section-heading"><div><span class="panel-kicker">Recommended practice</span><h2>Your highest-value themes</h2></div></div><div id="tacticsReportRecommendations" class="report-grid"></div><div class="section-heading report-examples-heading"><div><span class="panel-kicker">Positions from your games</span><h2>Labeled examples</h2></div></div><div id="tacticsReportExamples" class="report-examples"></div></div>
+      <div id="tacticsReportResults" class="report-results hidden"><section class="report-summary review-summary"><div><strong id="tacticsReportGames">0</strong><span>games</span></div><div><strong id="tacticsReportAccuracy">—</strong><span>average accuracy</span></div><div><strong id="tacticsReportPositions">0</strong><span>positions checked</span></div><div><strong id="tacticsReportMistakes">0</strong><span>costly mistakes</span></div></section><div class="review-practice-callout"><div><span class="panel-kicker">Your games become puzzles</span><h2><span id="reviewPuzzleCount">0</span> important positions ready to practice</h2><p>These use the same large-loss and missed-win rules as the original trainer, now labeled by chess_detect.</p></div><button id="practiceReviewPuzzles" class="primary-button" type="button">Practice my positions</button></div><div class="section-heading"><div><span class="panel-kicker">Recommended on Lichess</span><h2>Tagged puzzles for the tactics you missed</h2></div></div><div id="tacticsReportRecommendations" class="report-grid"></div><div class="section-heading report-examples-heading"><div><span class="panel-kicker">Positions from your games</span><h2>Highest-impact examples</h2></div></div><div id="tacticsReportExamples" class="report-examples"></div></div>
     </section>
 
     <section id="aboutPage" class="about-page hidden">
@@ -231,6 +228,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
   <footer><span>DoBackChess</span><span>Static-first · Stockfish 18 and Reckless browser alpha run locally · Chess.com, Lichess, and PGN games</span></footer>
-  <script type="module" src="./app.js?v=21"></script>
+  <script type="module" src="./app.js?v=24"></script>
 </body>
 </html>

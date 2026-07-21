@@ -1,0 +1,12 @@
+{
+  "name": "dobackchess-static",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "scripts": {
+    "build:classifier": "tsc -p tsconfig.classifier.json",
+    "check:classifier": "tsc -p tsconfig.classifier.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

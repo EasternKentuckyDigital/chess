@@ -1,14 +1,17 @@
 # DoBackChess static architecture
 
-DoBackChess is a fully static training application with optional Firebase sync.
-GitHub Pages can own the complete free-beta application. Future server-side
-engine gateways are documented separately but are not exposed in the beta UI.
+DoBackChess is a fully static analysis application with optional Firebase sync.
+Its visible product is deliberately limited to three routes: Play engines,
+Analysis board, and Review games. GitHub Pages can own the complete free-beta
+application. Future server-side engine gateways are documented separately but
+are not exposed in the beta UI.
 
 ## Static application
 
 The browser imports public games directly from Chess.com and Lichess, parses
-PGN with `chess.js`, evaluates positions with local Stockfish or Reckless, builds puzzles, renders the board, and
-schedules reviews. Device profiles are intentionally described as device-only;
+PGN with `chess.js`, evaluates positions with local Stockfish or Reckless,
+labels missed moves with the TypeScript `chess_detect` classifier, builds
+puzzles, renders the board, and schedules reviews. Device profiles are intentionally described as device-only;
 they are not password accounts and do not imply cross-device durability.
 
 Browser storage is appropriate for the analysis cache, UI preferences, and an
@@ -29,17 +32,17 @@ DoBackChess stores only user-owned state below `users/{uid}/state/{stateId}`:
 - preferences;
 - imported game libraries and played-engine games;
 - spaced-repetition schedules and puzzle-solving status; and
-- generated Chess Report overviews and Tactics Reports.
+- generated 20–50 game review summaries, motif recommendations, and puzzle decks.
 
 Imported libraries merge new records ahead of older records and deduplicate by
 game ID. Cloud accounts may retain up to 500 records per player/source, while
 guest and device libraries retain up to 100. A conservative serialized-byte
 budget keeps each state document below Firestore's document-size ceiling.
 
-Training requests every public standard game in the last seven days or the
-selected 20-to-50-game fallback, whichever set is larger. Chess Report and
-Tactics Report analyze the latest 20 games by default and can be raised to 35 or
-50 in Settings. The 100-game master-deck scope remains separate.
+Review analyzes the latest 20 games by default and can be set to 35 or 50 on the
+Review page. Single-game analysis accepts PGN, FEN, and positions built on the
+existing board. Both paths use the same puzzle threshold and Lichess-theme
+mapping.
 
 Deploy [`firestore.rules`](../firestore.rules) with the Firebase CLI so each UID
 can read and write only its own state. Firebase web configuration values are
@@ -74,11 +77,10 @@ scoped even when the account session is longer lived.
 
 ### Free-beta engine policy
 
-Users may import their own public games or PGNs, build master decks from the
-latest 100 public games of verified Chess.com grandmasters, run Stockfish or
-Reckless in the browser, review locally cached decks, and sync preferences and
-progress. Remote engine descriptors remain reserved for future development but
-are filtered out of the product UI and cannot be selected in this beta.
+Users may import their own public games or PGNs, run Stockfish or Reckless in
+the browser, review locally cached decks, and sync preferences and progress.
+Remote engine descriptors remain reserved for future development but are
+filtered out of the product UI and cannot be selected in this beta.
 
 ## Optional compute gateway
 
@@ -153,21 +155,28 @@ browser may download the roughly 61.5 MiB Reckless package when that engine is
 first selected. `scripts/install-reckless.sh` exists only for maintainers
 replacing the pinned package with a newly verified build.
 
-## Tactical report classification
+## Review and tactical classification
 
-Tactics Report compares the unconstrained best result with a constrained search
-of the move actually played. Both results remain in UCI side-to-move
-perspective; after advancing the played move, the opponent's punishment result
-is explicitly flipped before it is classified. A loss of at least 80
-centipawns is reportable.
+Both review paths compare Stockfish's unconstrained best result with a
+constrained search of the move actually played. Both results remain in UCI
+side-to-move perspective. A loss of at least 80 centipawns is reportable; the
+existing stricter puzzle rule still requires a three-pawn loss, missed forced
+mate, or missed clearly winning position.
 
-`tactical-themes.js` reconstructs legal moves with chess.js and recognizes a
-small set of high-confidence line features. Report labels use only the immediate
-refutation, because motifs appearing later in a principal variation generally
-describe conversion rather than the original mistake. When no feature clears
-that conservative policy, the UI says **Forcing calculation**. The classifier
-was independently implemented and held-out tested against the official Lichess
-puzzle themes; AGPL-licensed Lichess classifier code is not included.
+`src/chess-detect.ts` ports the ten tactical detectors from MIT-licensed
+`aslyamov/chess_detect` at commit
+`662ad8d64f59a4bbc83cc003585f9bf10f4b7a70`. The generated
+`static/lib/chess-detect.js` receives the pre-move FEN, Stockfish's legal best
+move, and previous-move capture context. It returns material-aware theme IDs and
+phrases while rejecting malformed or illegal inputs. Previous-move context
+prevents ordinary recaptures from being mislabeled as hanging-piece wins.
+
+Only themes with a direct Lichess training equivalent become recommendation
+links. Own-game puzzles retain the full theme list and readable tagline. Batch
+recommendations rank repeated themes first, then total missed evaluation
+impact. The classifier runs entirely in the browser and needs no Python runtime
+or WASM download. Its MIT notice and provenance are in
+`THIRD_PARTY_LICENSES.md`.
 
 ## Security boundary
 

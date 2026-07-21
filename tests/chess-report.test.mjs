@@ -19,20 +19,27 @@ function reportFixture() {
   };
 }
 
-test("the website presents Chess Report and Tactics Report as separate tools", async () => {
+test("the website exposes only the focused Play, Analysis, and Review routes", async () => {
   const html = await readFile(new URL("../static/index.html", import.meta.url), "utf8");
   const app = await readFile(new URL("../static/app.js", import.meta.url), "utf8");
-  assert.match(html, /id="navReport"[^>]*>Chess report</);
-  assert.match(html, /id="navTacticsReport"[^>]*>Tactics report</);
-  assert.match(html, /id="reportPage"/);
+  const visibleRoutes = [...html.matchAll(/id="nav(Play|Analysis|Review)"/g)].map(match => match[1]);
+  assert.deepEqual(visibleRoutes, ["Play", "Analysis", "Review"]);
+  assert.doesNotMatch(html, /id="nav(?:Home|Masters|Report|TacticsReport|About|Training)"/);
+  assert.match(html, /id="analysisPage"/);
+  assert.match(html, /id="playPage"/);
   assert.match(html, /id="tacticsReportPage"/);
-  assert.match(html, /Your latest games, wrapped\./);
   assert.match(html, /Find the patterns behind your mistakes\./);
+  assert.match(html, /id="reviewGameLimit"/);
+  assert.match(html, /20 games/);
+  assert.match(html, /50 games/);
+  assert.match(html, /id="analysisInsights"/);
+  assert.match(html, /Practice my positions/);
   assert.match(html, /data-analysis-level="superquick"/);
   assert.match(html, /data-report-game-limit="20"/);
   assert.match(html, /data-report-game-limit="50"/);
   assert.match(app, /analysisLevel: "superquick"/);
   assert.match(app, /reportGameLimit: DEFAULT_REPORT_GAMES/);
+  assert.match(app, /reportMode: mode === "tactics" \? "combined" : mode/);
 });
 
 test("report counts losses at 80 cp, ignores 79 cp, reports progress, and closes its engine", async () => {
@@ -77,6 +84,42 @@ test("report counts losses at 80 cp, ignores 79 cp, reports progress, and closes
   assert.equal(report.wrapped.games, 1);
   assert.equal(report.wrapped.moves, 2);
   assert.ok(report.wrapped.averageAccuracy > 80 && report.wrapped.averageAccuracy < 83);
+});
+
+test("combined review uses chess_detect tags for Lichess recommendations and own-game puzzles", async () => {
+  const chess = new Chess();
+  const before = chess.fen();
+  const move = chess.move("f3");
+  const detail = { frames: [{ fen: before }, { fen: chess.fen() }], moves: [{ ply: 1, uci: `${move.from}${move.to}`, san: move.san, fen: chess.fen() }] };
+  const game = { id: "tagged-review", playerColor: "white", opponent: "Fixture", date: "Jul 21, 2026", result: "Loss" };
+  const report = await buildChessReport({
+    username: "Fixture",
+    source: "pgn",
+    importedGames: { games: [game] },
+    gameDetail: () => detail,
+    prepareMotifAnalyzer: async () => true,
+    motifAnalyzer: () => ({
+      san: "e4",
+      tagline: "Forks the king and rook",
+      motifIds: ["fork"],
+      recommendations: [{ id: "fork", label: "Forks", advice: "Practice forks.", url: "https://lichess.org/training/fork" }],
+      analyzer: "chess_detect-ts",
+    }),
+    engineFactory: () => ({
+      async init() {},
+      async evaluate(_fen, searchMoves = null) {
+        if (searchMoves) return { bestmove: "f2f3", cp: -100, mate: null, pv: ["f2f3"] };
+        return { bestmove: "e2e4", cp: 300, mate: null, pv: ["e2e4"] };
+      },
+      close() {},
+    }),
+  });
+  assert.equal(report.mode, "combined");
+  assert.deepEqual(report.recommendations.map(item => [item.id, item.count]), [["fork", 1]]);
+  assert.equal(report.examples[0].analyzer, "chess_detect-ts");
+  assert.equal(report.puzzles.length, 1);
+  assert.equal(report.puzzles[0].positionalTagline, "Forks the king and rook");
+  assert.equal(report.puzzles[0].lichessRecommendations[0].url, "https://lichess.org/training/fork");
 });
 
 test("report gives an explicit error for an empty imported set", async () => {
@@ -153,6 +196,41 @@ test("report evaluates only the studied player's moves when that player has Blac
   assert.deepEqual(calls.map(call => call.fen), [frames[1].fen, frames[3].fen]);
   assert.ok(calls.every(call => call.searchMoves === null));
   assert.equal(closed, true);
+});
+
+test("report uses the saved FEN turn for Black-to-move setup positions", async () => {
+  const chess = new Chess("2k5/8/8/8/8/n7/8/Q3K3 b - - 0 1");
+  const before = chess.fen();
+  const played = chess.move({ from: "a3", to: "b5" });
+  const detail = {
+    frames: [{ fen: before }, { fen: chess.fen() }],
+    moves: [{ ply: 1, uci: "a3b5", san: played.san, fen: chess.fen() }],
+  };
+  let calls = 0;
+  const report = await buildChessReport({
+    username: "Black setup",
+    source: "pgn",
+    importedGames: { games: [{ id: "black-setup", playerColor: "black", opponent: "White", date: "Imported game" }] },
+    gameDetail: () => detail,
+    engineFactory: () => ({
+      async init() {},
+      async evaluate(_fen, searchMoves = null) {
+        calls += 1;
+        return searchMoves
+          ? { bestmove: "a3b5", depth: 16, cp: -1170, mate: null, pv: ["a3b5"] }
+          : { bestmove: "a3c2", depth: 16, cp: -7, mate: null, pv: ["a3c2"] };
+      },
+      close() {},
+    }),
+  });
+  assert.equal(report.positions, 1);
+  assert.equal(report.mistakes, 1);
+  assert.equal(report.puzzles.length, 1);
+  assert.equal(report.examples[0].analyzer, "chess_detect-ts");
+  assert.ok(report.examples[0].motifIds.includes("fork"));
+  assert.equal(report.recommendations[0].url, "https://lichess.org/training/fork");
+  assert.match(report.puzzles[0].positionalTagline, /Forks/);
+  assert.equal(calls, 2);
 });
 
 test("report always closes Stockfish when evaluation fails", async () => {

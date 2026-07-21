@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   centipawnLoss,
+  formatWhitePerspectiveEvaluation,
   lichessCentipawnsToSideToMove,
   oppositeSideResult,
   sideToMoveScore,
@@ -40,4 +41,10 @@ test("move loss compares same-position UCI scores without a color-dependent sign
   const played = { cp: -80, mate: null };
   assert.equal(centipawnLoss(best, played), 200);
   assert.equal(centipawnLoss(played, best), 0);
+});
+
+test("saved puzzle evaluations are formatted from White's perspective", () => {
+  assert.equal(formatWhitePerspectiveEvaluation({ cp: 80, mate: null }, WHITE_TO_MOVE), "+0.8");
+  assert.equal(formatWhitePerspectiveEvaluation({ cp: 90, mate: null }, BLACK_TO_MOVE), "−0.9");
+  assert.equal(formatWhitePerspectiveEvaluation({ cp: null, mate: 3 }, BLACK_TO_MOVE), "Mated in 3");
 });

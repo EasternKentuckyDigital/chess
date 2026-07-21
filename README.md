@@ -1,11 +1,20 @@
 # DoBackChess
 
-DoBackChess imports public Chess.com and Lichess games and turns important mistakes
-into a spaced-repetition training deck. The production app is now a static web
-site: public-game import, PGN parsing, legal move handling, puzzle creation, and
-Stockfish 18 and Reckless analysis all run in the visitor's browser. The
-Reckless browser integration is alpha software and may download about 61.5 MiB
-of engine files when it is first used.
+DoBackChess is a focused, static browser chess tool with three product surfaces:
+
+1. **Play engines** — play Stockfish 18 or Reckless from the normal position or
+   with knight, rook, or queen odds for either side.
+2. **Analysis board** — import one PGN, load a FEN, or build a position without
+   changing the existing board workflow. A full-game review measures accuracy,
+   finds missed motifs, and creates practice positions.
+3. **Review games** — import 20, 35, or 50 Chess.com, Lichess, or PGN games,
+   summarize accuracy, find recurring missed tactics, practice positions from
+   those games, and open matching tagged puzzle themes on Lichess.
+
+PGN parsing, legal move handling, Stockfish search, puzzle creation, review
+scheduling, and the TypeScript `chess_detect` tactic classifier all run in the
+visitor's browser. Reckless remains alpha software and may download about 61.5
+MiB when first used.
 
 ## Run it locally
 
@@ -30,9 +39,9 @@ Do not expose this development server directly to the public internet.
 
 ## Deploy to GitHub Pages
 
-The included `.github/workflows/pages.yml` can publish the contents of `static/`
-without a build step. It runs on pull requests for validation, deploys on pushes
-to `main`, and still supports manual `workflow_dispatch` runs. Choose **GitHub
+The included `.github/workflows/pages.yml` compiles and verifies the classifier,
+then publishes `static/`. It runs on pull requests for validation, deploys on
+pushes to `main`, and still supports manual `workflow_dispatch` runs. Choose **GitHub
 Actions** in the repository's **Settings → Pages** before the first deployment.
 
 All application and asset URLs are relative. `static/CNAME` declares
@@ -52,7 +61,13 @@ must point at GitHub Pages before HTTPS can be enabled.
 - `static/lib/analysis-board.js` provides click and drag legal play, PGN import,
   clickable notation history, position editing, FEN loading, arrows, live
   analysis, explicit queen/rook/bishop/knight promotion, and progressive
-  per-game accuracy through the selected engine provider.
+  per-game accuracy through the selected engine provider, missed-motif review,
+  Lichess theme recommendations, and conversion of important mistakes into the
+  existing puzzle trainer.
+- `src/chess-detect.ts` is the typed, browser-safe port of the pinned MIT
+  `aslyamov/chess_detect` tactical detectors. The checked-in build at
+  `static/lib/chess-detect.js` classifies ten concrete themes, produces readable
+  explanations, and maps only supported themes to exact Lichess training URLs.
 - `static/lib/board-arrows.js` provides reusable right-drag board annotations for
   both training puzzles and the general analysis board.
 - `static/lib/profile-store.js` replaces misleading server-local passwords with
@@ -66,11 +81,10 @@ must point at GitHub Pages before HTTPS can be enabled.
 - `static/lib/engine-play.js` provides a playable Stockfish/Reckless board with
   standard starts plus knight, rook, and queen odds for either side, including
   an explicit promotion-piece choice that defaults to queen.
-- `static/lib/chess-report.js` powers two deliberately separate products. Chess
-  Report is a Wrapped-style accuracy and results overview for the latest 20
-  games by default. Tactics Report imports the last seven days or the selected
-  fallback count, then analyzes the newest 20 by default. Settings can expand
-  either report to 35 or 50 games, with an explicit runtime warning.
+- `static/lib/chess-report.js` powers the unified 20–50 game review. Stockfish
+  measures loss and accuracy; `chess_detect` labels the best move at each
+  reportable mistake; the result includes aggregate Lichess recommendations and
+  a bounded own-game puzzle deck.
 - `static/lib/game-import.js` accepts Chess.com, Lichess, multi-game PGN files,
   and pasted SAN move notation for training decks and chess reports.
 - `static/config.js` contains public deployment configuration. Never put engine
@@ -114,13 +128,32 @@ roughly 61.5 MiB package only after a visitor explicitly starts Reckless.
 `scripts/install-reckless.sh` is retained only for maintainers replacing the
 vendored package with a newly verified RecklessWeb build.
 
+## chess_detect TypeScript port
+
+The primary tactic classifier is a TypeScript port of
+[`aslyamov/chess_detect`](https://github.com/aslyamov/chess_detect), pinned to
+commit `662ad8d64f59a4bbc83cc003585f9bf10f4b7a70`. It covers double checks, forks,
+discovered checks, pins, skewers, trapped pieces, hanging captures, material and
+mate defender removal, and exploiting an existing pin. The port uses the
+site's existing `chess.js` rules engine, needs no Python service or runtime, and
+fails closed on invalid positions or illegal engine moves.
+
+The upstream MIT notice and exact provenance are in
+[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md). To rebuild and verify the
+checked-in browser module:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm run check:classifier
+pnpm run build:classifier
+node --test tests/chess-detect.test.mjs
+```
+
 ## How training works
 
-- Training uses every public standard game from the last seven days or the
-  selected fallback count, whichever is larger. Chess Report and Tactics Report
-  analyze the latest 20 games by default; Settings can raise either report to 35
-  or 50 games. If an account has fewer games, DoBackChess uses everything
-  available and says so explicitly. Missing usernames and accounts
+- Review imports and analyzes the latest 20 games by default and can be set to
+  35 or 50 directly on the page. If an account has fewer games, DoBackChess uses
+  everything available and says so explicitly. Missing usernames and accounts
   with no usable public games are separate error states.
 - Signed-in Google and email/password accounts retain a substantially larger
   deduplicated imported-game library through Firebase than guest/device
@@ -134,9 +167,6 @@ vendored package with a newly verified RecklessWeb build.
   Super quick is the default because it is the release-tested quality baseline.
   Every browser feature is available in the free beta; there is no paid tier or
   upgrade prompt.
-- Master decks are free. A master deck is built from a verified
-  Chess.com grandmaster account in the titled-player directory or the featured
-  master list, scanning that player's latest 100 public standard games.
 - A position becomes a puzzle when the played move loses at least three pawns,
   misses a forced mate, or misses a clearly winning position.
 - Puzzles are added to the deck after each game finishes; training can begin
@@ -154,8 +184,8 @@ vendored package with a newly verified RecklessWeb build.
 ## Free beta
 
 The beta has no pricing, subscriptions, feature locks, or upgrade prompts.
-Public-game and PGN import, free master decks, Stockfish 18, Reckless browser
-alpha, Chess Report, Tactics Report, analysis, review scheduling, and cached
+Public-game and PGN import, Stockfish 18, Reckless browser alpha, the analysis
+board, 20–50 game review, Lichess recommendations, review scheduling, and cached
 local decks are all available. Both engines run on the visitor's device;
 Reckless may require a large first-use download and both engines can increase
 CPU, memory, battery, and mobile-data use.
@@ -180,6 +210,13 @@ If either browser engine cannot start, DoBackChess shows the worker, download, o
 unsupported-browser failure instead of silently falling back to empty analysis.
 
 ## Lichess engine and report benchmark
+
+> **Historical benchmark note:** checked-in motif precision and “Tactics
+> Report” agreement numbers below describe the previous independent
+> `tactical-themes.js` classifier. The focused product now uses
+> `chess_detect` for user-facing motif detection. The engine legality,
+> constrained-search, score-perspective, and only-move results remain relevant;
+> the old motif-label percentages are not release claims for the new analyzer.
 
 `scripts/benchmark-lichess.mjs` runs a deterministic, side-balanced benchmark
 against the official CC0 Lichess position-evaluation and puzzle exports. By
@@ -359,6 +396,10 @@ that token from `sessionStorage` under `replay:engine-access-token`.
   generated glue, type files, worker, and split WASM are included at
   `static/vendor/reckless/`. Corresponding source and rebuild directions are in
   `static/vendor/reckless/SOURCE.md` and this README.
+- Tactic classifier: TypeScript port of
+  [aslyamov/chess_detect](https://github.com/aslyamov/chess_detect), pinned at
+  commit `662ad8d64f59a4bbc83cc003585f9bf10f4b7a70` under the MIT License. The full
+  notice and provenance are in `THIRD_PARTY_LICENSES.md`.
 - Piece artwork: Cburnett, Alpha, and Merida sets from Lichess. The Lichess
   license is included at `static/pieces/LICHESS-LICENSE.txt`.
 - Future optional engine gateway: Lc0 source is available at

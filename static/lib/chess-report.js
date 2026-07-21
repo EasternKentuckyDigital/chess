@@ -1,10 +1,13 @@
 import { Chess } from "../vendor/chess/chess.js";
 import { createEngine } from "./engine-providers.js?v=21";
 import { DEFAULT_REPORT_GAMES, importGames, getGameDetail, normalizeReportGameLimit } from "./game-import.js?v=21";
-import { centipawnLoss, oppositeSideResult } from "./engine-score.js";
+import { centipawnLoss, oppositeSideResult, sideToMoveScore } from "./engine-score.js";
+import { classifyPuzzleEligibility } from "./puzzle-rules.js";
 import { classifyTacticalLine } from "./tactical-themes.js";
+import { aggregateRecommendations, classifyTactic, ensureTacticClassifier } from "./chess-detect.js";
 
 export const MIN_REPORT_LOSS = 80;
+export const MAX_REVIEW_PUZZLES = 200;
 // Name a report tactic from the immediate engine refutation only. Later PV moves
 // often describe the conversion after the tactic rather than the tactic itself.
 const REPORT_TACTICAL_WINDOW_PLIES = 1;
@@ -93,6 +96,63 @@ export function accuracyFromLoss(loss) {
   return Math.max(0, Math.min(100, 100 * Math.exp(-Math.max(0, loss) / 400)));
 }
 
+function formatEvaluation(result) {
+  if (result?.mate !== null && result?.mate !== undefined) return result.mate > 0 ? `Mate in ${result.mate}` : `Mated in ${Math.abs(result.mate)}`;
+  const pawns = (result?.cp ?? 0) / 100;
+  return `${pawns >= 0 ? "+" : "−"}${Math.abs(pawns).toFixed(1)}`;
+}
+
+function pvToSan(fen, pv = []) {
+  const chess = new Chess(fen);
+  const san = [];
+  for (const uci of pv.slice(0, 8)) {
+    const move = findMove(chess, uci);
+    if (!move) break;
+    san.push(move.san);
+    chess.move({ from: move.from, to: move.to, promotion: move.promotion });
+  }
+  return san.join(" ");
+}
+
+function fallbackFinding({ best, played }) {
+  if (best?.mate !== null && best?.mate > 0 || played?.mate !== null && played?.mate < 0) {
+    return {
+      san: best.bestmove,
+      tagline: "Forced mating line",
+      motifIds: ["checkmate"],
+      recommendations: [{ id: "mate", label: "Checkmate", advice: "Calculate checks and forced replies until the king has no escape.", url: "https://lichess.org/training/mate" }],
+      analyzer: "engine-fallback",
+    };
+  }
+  return { san: best?.bestmove || "", tagline: "Concrete best move", motifIds: [], recommendations: [], analyzer: "engine-fallback" };
+}
+
+function makeReviewPuzzle({ game, move, fen, eligibility, best, played, finding }) {
+  return {
+    id: `${game.id}:${move.ply}:${eligibility.category.toLowerCase().replaceAll(" ", "-")}`,
+    gameId: game.id,
+    ply: move.ply,
+    moveNumber: Math.ceil(move.ply / 2),
+    fen,
+    category: eligibility.category,
+    loss: Math.min(eligibility.loss, 100000),
+    impact: Math.min(eligibility.loss, 100000),
+    best: best.bestmove,
+    bestSan: finding.san || best.bestmove,
+    bestEval: formatEvaluation(best),
+    bestPv: pvToSan(fen, best.pv),
+    played: move.uci,
+    playedSan: move.san,
+    playedEval: formatEvaluation(played),
+    bestResult: { cp: best.cp, mate: best.mate },
+    engineName: "Stockfish 18",
+    positionalTagline: finding.tagline,
+    positionalMotifs: finding.motifIds,
+    lichessRecommendations: finding.recommendations,
+    game: { ...game },
+  };
+}
+
 function abortError() {
   const error = new Error("Report analysis was stopped.");
   error.name = "AbortError";
@@ -112,6 +172,8 @@ export async function buildChessReport({
   engineFactory = createEngine,
   gameDetail = getGameDetail,
   gameImporter = importGames,
+  prepareMotifAnalyzer = ensureTacticClassifier,
+  motifAnalyzer = classifyTactic,
 }) {
   const normalizedGameLimit = normalizeReportGameLimit(gameLimit);
   const mode = ["wrapped", "tactics"].includes(reportMode) ? reportMode : "combined";
@@ -128,8 +190,10 @@ export async function buildChessReport({
     throw abortError();
   }
   signal?.addEventListener("abort", stopEngine, { once: true });
-  const counts = Object.fromEntries(Object.keys(THEMES).map(key => [key, 0]));
+  await prepareMotifAnalyzer?.();
+  const findings = [];
   const examples = [];
+  const puzzles = [];
   let positions = 0;
   let mistakes = 0;
   const wrappedGames = new Set(wrappedGameRecords.map(game => game.id));
@@ -141,8 +205,8 @@ export async function buildChessReport({
       if (signal?.aborted) throw abortError();
       const game = analysisGames[gameIndex];
       const detail = gameDetail(game.id);
-      const parity = game.playerColor === "white" ? 1 : 0;
-      const moves = detail.moves.filter(move => move.ply % 2 === parity);
+      const studiedTurn = game.playerColor === "white" ? "w" : "b";
+      const moves = detail.moves.filter(move => detail.frames[move.ply - 1]?.fen?.split(" ")[1] === studiedTurn);
       const gameAccuracies = [];
       for (let index = 0; index < moves.length; index += 1) {
         if (signal?.aborted) throw abortError();
@@ -158,15 +222,25 @@ export async function buildChessReport({
           if (wrappedGames.has(game.id)) gameAccuracies.push(accuracyFromLoss(loss));
           if (includeTactics && loss >= MIN_REPORT_LOSS) {
             mistakes += 1;
-            const classification = classifyReportThemes({ fen, best, playedUci: move.uci, played });
-            const motif = classification.primary;
-            counts[motif] += 1;
+            const previous = detail.moves.find(candidate => candidate.ply === move.ply - 1);
+            const previousMove = previous ? {
+              from: previous.uci.slice(0, 2),
+              to: previous.uci.slice(2, 4),
+              wasCapture: previous.san.includes("x"),
+            } : undefined;
+            const finding = motifAnalyzer?.(fen, best.bestmove, { previousMove }) || fallbackFinding({ best, played });
+            findings.push({ ...finding, loss });
+            const primary = finding.recommendations?.[0];
+            const motif = primary?.id || "calculation";
             if (examples.length < 24) examples.push({
               id: `${game.id}:${move.ply}`,
               motif,
-              label: THEMES[motif].label,
-              themes: classification.themes,
-              confidence: motif === "calculation" ? "general" : "specific",
+              label: primary?.label || "Calculation",
+              tagline: finding.tagline,
+              motifIds: finding.motifIds,
+              recommendations: finding.recommendations,
+              analyzer: finding.analyzer,
+              confidence: primary ? "specific" : "general",
               fen,
               bestMove: best.bestmove,
               playedMove: move.uci,
@@ -179,6 +253,15 @@ export async function buildChessReport({
               opponent: game.opponent,
               date: game.date,
             });
+            if (puzzles.length < MAX_REVIEW_PUZZLES) {
+              const eligibility = classifyPuzzleEligibility({
+                bestValue: sideToMoveScore(best),
+                playedValue: sideToMoveScore(played),
+                bestMate: best.mate,
+                playedMate: played.mate,
+              });
+              if (eligibility.eligible) puzzles.push(makeReviewPuzzle({ game, move, fen, eligibility, best, played, finding }));
+            }
           }
         }
         onProgress?.({ game: gameIndex + 1, games: analysisGames.length, move: index + 1, moves: moves.length });
@@ -192,10 +275,8 @@ export async function buildChessReport({
     signal?.removeEventListener("abort", stopEngine);
     engine.close();
   }
-  const recommendations = Object.entries(counts)
-    .filter(([, count]) => count > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([id, count]) => ({ id, count, ...THEMES[id], url: `https://lichess.org/training/${THEMES[id].slug}` }));
+  const recommendations = aggregateRecommendations(findings);
+  const counts = Object.fromEntries(recommendations.map(item => [item.id, item.count]));
   return {
     username,
     source,
@@ -208,6 +289,8 @@ export async function buildChessReport({
     counts,
     recommendations,
     examples,
+    puzzles: puzzles.sort((left, right) => right.impact - left.impact),
+    analyzer: "chess_detect-ts",
     wrapped: includeWrapped ? {
       games: wrappedByGame.length,
       moves: wrappedAccuracy.length,

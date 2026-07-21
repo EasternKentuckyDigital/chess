@@ -5,10 +5,10 @@ import { activateDeviceProfile, clearProfileSession, continueAsGuest, listDevice
 import { classifyPuzzleEligibility } from "./lib/puzzle-rules.js";
 import { createBoardArrows } from "./lib/board-arrows.js";
 import { FEATURED_MASTERS, fetchGrandmasterHandles } from "./lib/masters.js";
-import { initAnalysisBoard } from "./lib/analysis-board.js?v=21";
+import { initAnalysisBoard } from "./lib/analysis-board.js?v=24";
 import { cloudConfigured, createEmailAccount, initCloudSession, loadCloudJson, queueCloudJson, sendEmailPasswordReset, signInOrLink, signInWithEmail, signOutCloud } from "./lib/auth-sync.js";
 import { initEnginePlay } from "./lib/engine-play.js?v=21";
-import { buildChessReport } from "./lib/chess-report.js?v=21";
+import { buildChessReport } from "./lib/chess-report.js?v=24";
 import { sideToMoveScore } from "./lib/engine-score.js";
 import { renderEvaluationBar } from "./lib/eval-bar.js";
 import { resolveSiteTheme } from "./lib/theme.js?v=21";
@@ -56,6 +56,8 @@ const state = {
   analysisCancelled: false,
   reportAbortController: null,
   reportAbortMode: null,
+  reviewReport: null,
+  reviewGames: [],
   pointerDrag: null,
   suppressClick: false,
   practiceEngine: null,
@@ -203,8 +205,7 @@ function enterTrainer() {
   document.body.classList.remove("analysis-room", "play-room");
   hideMainViews();
   $("#trainer").classList.remove("hidden");
-  $("#navTraining").classList.remove("hidden");
-  setActiveNav("training");
+  setActiveNav("review");
   $("#deckTitle").textContent = `${state.displayName || state.username}'s mistake`;
   $("#gameWindow").textContent = state.window;
   $("#gamesCount").textContent = state.games.length;
@@ -222,10 +223,7 @@ function hideMainViews() {
 }
 
 function goHome() {
-  document.body.classList.remove("puzzle-room", "analysis-room", "play-room");
-  hideMainViews();
-  $("#hero").classList.remove("hidden");
-  setActiveNav("home");
+  showAnalysis();
 }
 
 function showMasters() {
@@ -248,6 +246,7 @@ function showAnalysis() {
       getEngineProvider: () => state.prefs.engineProvider,
       getAnalysisLevel: () => state.prefs.analysisLevel,
       onSound: playSound,
+      onPracticePuzzles: openAnalysisPractice,
     });
   } else generalAnalysisBoard.refresh();
   applyPreferences();
@@ -283,7 +282,7 @@ async function showTacticsReport() {
   document.body.classList.remove("puzzle-room", "analysis-room", "play-room");
   hideMainViews();
   $("#tacticsReportPage").classList.remove("hidden");
-  setActiveNav("tacticsReport");
+  setActiveNav("review");
   await loadSavedReport("tactics");
 }
 
@@ -318,7 +317,7 @@ const REPORT_SURFACES = Object.freeze({
     stop: "#stopReportButton",
   }),
   tactics: Object.freeze({
-    label: "Tactics Report",
+    label: "Game review",
     form: "#tacticsReportForm",
     source: "#tacticsReportSource",
     username: "#tacticsReportUsername",
@@ -390,6 +389,7 @@ async function runReportAnalysis({ mode = "wrapped", username, source, importedG
     }
     const retained = await persistGameLibrary({ data: selectedGames, username, source, scope: mode === "tactics" ? "tactics-report" : "report" });
     const analyzedGames = selectedGames.games.slice(0, state.prefs.reportGameLimit);
+    if (mode === "tactics") state.reviewGames = analyzedGames;
     if (mode === "tactics" && selectedGames.games.length > analyzedGames.length) {
       showToast(`Imported ${selectedGames.games.length} recent games; Tactics Report will analyze the newest ${analyzedGames.length}. Increase the report count in Settings for more history.`);
     } else if (selectedGames.notice) showToast(selectedGames.notice);
@@ -399,7 +399,7 @@ async function runReportAnalysis({ mode = "wrapped", username, source, importedG
       importedGames: { ...selectedGames, games: analyzedGames },
       analysisLevel: state.prefs.analysisLevel,
       gameLimit: state.prefs.reportGameLimit,
-      reportMode: mode,
+      reportMode: mode === "tactics" ? "combined" : mode,
       signal: controller.signal,
       onProgress: progress => {
         $(ui.progressText).textContent = `Game ${progress.game} of ${progress.games} · move ${progress.move} of ${progress.moves}`;
@@ -437,13 +437,13 @@ function openTournamentImport(target) {
   pgnImportTarget = target;
   const isWrapped = target === "report";
   const isTactics = target === "tactics-report";
-  $("#trainingPgnTitle").textContent = isWrapped ? "Build a Chess Report from PGN" : isTactics ? "Build a Tactics Report from PGN" : "Build a deck from PGN";
+  $("#trainingPgnTitle").textContent = isWrapped ? "Build a Chess Report from PGN" : isTactics ? "Review games from PGN" : "Build a deck from PGN";
   $("#trainingPgnDescription").textContent = isWrapped
     ? "Upload one or more real tournament games, or paste complete PGN/SAN notation for a private recent-form summary."
     : isTactics
-      ? "Upload one or more real tournament games, or paste complete PGN/SAN notation to find tactical mistakes and practice themes."
+      ? "Upload one or more games, or paste complete PGN/SAN notation to review mistakes, detect themes, and create practice positions."
       : "Upload one or more real tournament games, or paste PGN/SAN notation such as 1. e4 e5 2. Nf3 Nc6.";
-  $("#loadTrainingPgnButton").textContent = isWrapped ? "Build Chess Report" : isTactics ? "Build Tactics Report" : "Build training deck";
+  $("#loadTrainingPgnButton").textContent = isWrapped ? "Build Chess Report" : isTactics ? "Review games" : "Build training deck";
   $("#trainingPgnError").textContent = "";
   if (!$("#trainingPgnDialog").open) $("#trainingPgnDialog").showModal();
 }
@@ -501,13 +501,60 @@ function renderChessReport(report) {
 }
 
 function renderTacticsReport(report) {
+  state.reviewReport = report;
   $("#tacticsReportGames").textContent = report.games;
+  $("#tacticsReportAccuracy").textContent = report.wrapped?.averageAccuracy === null || report.wrapped?.averageAccuracy === undefined ? "—" : `${report.wrapped.averageAccuracy.toFixed(1)}%`;
   $("#tacticsReportPositions").textContent = report.positions.toLocaleString();
   $("#tacticsReportMistakes").textContent = report.mistakes;
-  $("#tacticsReportRecommendations").innerHTML = report.recommendations.length ? report.recommendations.map((item, index) => `<article class="report-card ${index === 0 ? "top-theme" : ""}"><span class="report-count">${item.count}</span><div><span class="panel-kicker">${index === 0 ? "Top priority" : "Practice theme"}</span><h3>${escapeHtml(item.label)}</h3><p>${escapeHtml(item.advice)}</p><a href="${item.url}" target="_blank" rel="noreferrer">Practice labeled ${escapeHtml(item.label.toLowerCase())} puzzles on Lichess ↗</a></div></article>`).join("") : `<p class="report-empty">No repeated tactical weakness cleared the report threshold.</p>`;
-  $("#tacticsReportExamples").innerHTML = report.examples.length ? report.examples.map(example => `<article><span class="category">${escapeHtml(example.label)}</span><strong>vs ${escapeHtml(example.opponent)}</strong><small>${escapeHtml(example.date)} · ${escapeHtml(example.consequence || `lost ${(example.loss / 100).toFixed(1)} pawns`)}</small><code>${escapeHtml(example.fen)}</code></article>`).join("") : `<p class="report-empty">No costly examples were found.</p>`;
+  $("#reviewPuzzleCount").textContent = report.puzzles?.length || 0;
+  $("#practiceReviewPuzzles").disabled = !report.puzzles?.length;
+  $("#tacticsReportRecommendations").innerHTML = report.recommendations.length ? report.recommendations.map((item, index) => `<article class="report-card ${index === 0 ? "top-theme" : ""}"><span class="report-count">${item.count}</span><div><span class="panel-kicker">${index === 0 ? "Top priority" : "Practice theme"}</span><h3>${escapeHtml(item.label)}</h3><p>${escapeHtml(item.advice)}</p><a href="${item.url}" target="_blank" rel="noreferrer">Practice tagged ${escapeHtml(item.label.toLowerCase())} puzzles on Lichess ↗</a></div></article>`).join("") : `<p class="report-empty">No named chess_detect tactic cleared the report threshold. Your own large-loss positions are still available above.</p>`;
+  $("#tacticsReportExamples").innerHTML = report.examples.length ? report.examples.map(example => `<article><span class="category">${escapeHtml(example.label)}</span><strong>vs ${escapeHtml(example.opponent)}</strong><small>${escapeHtml(example.date)} · ${escapeHtml(example.consequence || `lost ${(example.loss / 100).toFixed(1)} pawns`)}</small><p>${escapeHtml(example.tagline || "Concrete best move")}</p><code>${escapeHtml(example.fen)}</code></article>`).join("") : `<p class="report-empty">No costly examples were found.</p>`;
   $("#tacticsReportResults").classList.remove("hidden");
 }
+
+function openAnalysisPractice({ puzzles, game, detail }) {
+  if (!puzzles?.length) return showToast("Review the game first so there are practice positions to open.");
+  state.username = "analysis-board";
+  state.displayName = "Analysis board";
+  state.source = "pgn";
+  state.window = "Single-game review";
+  state.games = [game];
+  state.selectedIds = new Set([game.id]);
+  state.details.clear();
+  state.details.set(game.id, detail);
+  state.puzzles = [...puzzles];
+  state.current = null;
+  state.sessionSeen.clear();
+  enterTrainer();
+  showNextPuzzle();
+}
+
+async function openReviewPractice() {
+  const report = state.reviewReport;
+  if (!report?.puzzles?.length) return showToast("Complete a review with at least one important missed position first.");
+  let games = state.reviewGames;
+  if (!games.length) {
+    const saved = await loadCloudJson(libraryKey(report.source, report.username), loadJson(libraryKey(report.source, report.username), null));
+    if (saved?.records?.length) games = restoreImportedGames(saved.records);
+  }
+  const puzzleGameIds = new Set(report.puzzles.map(puzzle => puzzle.gameId));
+  state.username = report.username;
+  state.displayName = report.username;
+  state.source = report.source;
+  state.window = `${report.games}-game review`;
+  state.games = games.filter(game => puzzleGameIds.has(game.id));
+  if (!state.games.length) state.games = [...new Map(report.puzzles.map(puzzle => [puzzle.game.id, puzzle.game])).values()];
+  state.selectedIds = new Set(state.games.map(game => game.id));
+  state.details.clear();
+  state.puzzles = [...report.puzzles];
+  state.current = null;
+  state.sessionSeen.clear();
+  enterTrainer();
+  showNextPuzzle();
+}
+
+$("#practiceReviewPuzzles").addEventListener("click", () => openReviewPractice().catch(error => showToast(error.message || "Those practice positions could not be opened.")));
 
 async function buildDeck(force = false) {
   if (state.analyzing) return;
@@ -739,7 +786,7 @@ async function loadPuzzle(puzzle) {
   $("#puzzlePrompt").textContent = "Find the best move in this position";
   $("#puzzleOpponent").textContent = `vs ${puzzle.game.opponent}`;
   $("#puzzleMeta").textContent = `${puzzle.game.date} · ${puzzle.game.timeClass} · move ${puzzle.moveNumber}`;
-  $("#puzzleHint").textContent = "Look for checks, captures, and forcing threats.";
+  $("#puzzleHint").textContent = puzzle.positionalTagline || "Look for checks, captures, and forcing threats.";
   const detail = await getGameDetail(puzzle.gameId);
   renderNotation(detail, puzzle, false);
 }
@@ -972,7 +1019,7 @@ function revealSolution(correct) {
   $("#puzzleCategory").textContent = state.current.category;
   $("#puzzleCategory").className = `category ${categoryClass}`;
   $("#solutionKicker").textContent = `${correct ? "Correct" : "Solution"} · ${state.current.category}`;
-  $("#solutionTitle").textContent = correct ? "That is the move." : "This was the stronger move.";
+  $("#solutionTitle").textContent = state.current.positionalTagline || (correct ? "That is the move." : "This was the stronger move.");
   $("#playedLabel").textContent = "Played in the game";
   $("#bestLabel").textContent = "Best move";
   $("#playedMove").textContent = state.current.playedSan;
@@ -1112,6 +1159,7 @@ function applyPreferences() {
   $$('[data-engine-provider]').forEach(button => button.classList.toggle("active", button.dataset.engineProvider === state.prefs.engineProvider));
   $$('[data-analysis-level]').forEach(button => button.classList.toggle("active", button.dataset.analysisLevel === state.prefs.analysisLevel));
   $$('[data-report-game-limit]').forEach(button => button.classList.toggle("active", Number(button.dataset.reportGameLimit) === state.prefs.reportGameLimit));
+  if ($("#reviewGameLimit")) $("#reviewGameLimit").value = String(state.prefs.reportGameLimit);
   const level = analysisLimits(state.prefs.analysisLevel);
   $("#analysisLevelNote").textContent = `${level.label}: Stockfish depth ${level.stockfishDepth} · Reckless ${level.recklessNodes.toLocaleString()} nodes. ${level.detail}`;
   $("#reportGameLimitNote").textContent = `${state.prefs.reportGameLimit} games per Chess Report or Tactics Report. Training still includes every game from the last 7 days when that is larger.`;
@@ -1191,6 +1239,17 @@ $$('[data-report-game-limit]').forEach(button => button.addEventListener("click"
   updateReportSourceUI("tactics");
   showToast(`${gameLimit} games selected for new reports. Larger reports take longer.`);
 }));
+
+$("#reviewGameLimit").addEventListener("change", event => {
+  if (state.reportAbortController) {
+    event.currentTarget.value = String(state.prefs.reportGameLimit);
+    return showToast("Stop the current review before changing its game count.");
+  }
+  state.prefs.reportGameLimit = normalizeReportGameLimit(event.currentTarget.value);
+  savePreferences();
+  applyPreferences();
+  updateReportSourceUI("tactics");
+});
 
 $$('[data-pieces]').forEach(button => button.addEventListener("click", () => {
   state.prefs.pieces = button.dataset.pieces;
@@ -1530,7 +1589,7 @@ function updateReportSourceUI(mode = "wrapped") {
   const isPgn = $(ui.source).value === "pgn";
   $(ui.username).classList.toggle("hidden", isPgn);
   $(ui.username).required = !isPgn;
-  $(`${ui.form} button`).textContent = isPgn ? "Upload games" : mode === "tactics" ? "Build Tactics Report" : "Build Chess Report";
+  $(`${ui.form} button`).textContent = isPgn ? "Upload games" : mode === "tactics" ? "Review games" : "Build Chess Report";
   const scope = mode === "tactics"
     ? `Your latest ${state.prefs.reportGameLimit} selected games, with the import filled from the last 7 days first`
     : `Your latest ${state.prefs.reportGameLimit} public games, or every available game when fewer exist`;
@@ -1542,15 +1601,10 @@ $("#gameSource").addEventListener("change", updateGameSourceUI);
 $("#reportSource").addEventListener("change", () => updateReportSourceUI("wrapped"));
 $("#tacticsReportSource").addEventListener("change", () => updateReportSourceUI("tactics"));
 
-$("#brandHome").addEventListener("click", event => { event.preventDefault(); goHome(); });
-$("#navHome").addEventListener("click", goHome);
-$("#navMasters").addEventListener("click", showMasters);
+$("#brandHome").addEventListener("click", event => { event.preventDefault(); showAnalysis(); });
 $("#navAnalysis").addEventListener("click", showAnalysis);
 $("#navPlay").addEventListener("click", showPlay);
-$("#navReport").addEventListener("click", showReport);
-$("#navTacticsReport").addEventListener("click", showTacticsReport);
-$("#navAbout").addEventListener("click", showAbout);
-$("#navTraining").addEventListener("click", () => { if (state.games.length) enterTrainer(); });
+$("#navReview").addEventListener("click", showTacticsReport);
 $("#gmSearch").addEventListener("input", event => renderGrandmasterDirectory(event.currentTarget.value));
 
 $$('[data-close]').forEach(button => button.addEventListener("click", () => $(`#${button.dataset.close}`).close()));
@@ -1621,3 +1675,4 @@ systemColorScheme?.addEventListener?.("change", () => {
   if ((state.prefs.siteTheme || "system") === "system") applyPreferences();
 });
 renderBoard();
+showAnalysis();

@@ -6,12 +6,22 @@ on:
     branches: [main]
     paths:
       - "static/**"
+      - "src/**"
       - "tests/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.classifier.json"
+      - "THIRD_PARTY_LICENSES.md"
       - ".github/workflows/pages.yml"
   pull_request:
     paths:
       - "static/**"
+      - "src/**"
       - "tests/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.classifier.json"
+      - "THIRD_PARTY_LICENSES.md"
       - ".github/workflows/pages.yml"
 
 permissions:
@@ -32,6 +42,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Verify generated tactic classifier
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check:classifier
+          pnpm run build:classifier
+          git diff --exit-code -- static/lib/chess-detect.js
       - name: Configure Pages
         uses: actions/configure-pages@v6
       - name: Validate browser modules
@@ -45,6 +70,7 @@ jobs:
           node --check static/lib/auth-sync.js
           node --check static/lib/engine-play.js
           node --check static/lib/chess-report.js
+          node --check static/lib/chess-detect.js
           node --check static/lib/analysis-board.js
           node --check static/lib/promotion.js
           node --check static/lib/board-arrows.js
