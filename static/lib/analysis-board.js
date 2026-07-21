@@ -21,6 +21,16 @@ function findMove(chess, moveUci) {
   return chess.moves({ verbose: true }).find(move => uci(move) === moveUci || uci(move).slice(0, 4) === moveUci.slice(0, 4) && !moveUci[4]);
 }
 
+function sameMove(left, right) {
+  if (!left || !right) return false;
+  return left === right || left.slice(0, 4) === right.slice(0, 4) && (!left[4] || !right[4]);
+}
+
+function sanForMove(fen, moveUci) {
+  try { return findMove(new Chess(fen), moveUci)?.san || moveUci || "—"; }
+  catch { return moveUci || "—"; }
+}
+
 function resultText(result, fen) {
   const whiteFactor = fen.split(" ")[1] === "w" ? 1 : -1;
   if (result.mate !== null) {
@@ -61,6 +71,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     moves: [],
     cursor: 0,
     headers: {},
+    sourceGame: null,
     moveAnalyses: [],
     findings: [],
     puzzles: [],
@@ -138,7 +149,43 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     $("#analysisNotation").innerHTML = html || `<p>Play moves or import PGN to build notation.</p>`;
     $("#analysisNotation").querySelectorAll("[data-analysis-ply]").forEach(button => button.addEventListener("click", () => setCursor(Number(button.dataset.analysisPly))));
     $("#analysisAccuracyButton").disabled = !state.moves.length && !state.accuracyRunning;
+    renderMoveExplanation();
     requestAnimationFrame(() => $("#analysisNotation .analysis-move.current")?.scrollIntoView({ block: "nearest" }));
+  }
+
+  function renderMoveExplanation() {
+    const panel = $("#analysisMoveExplanation");
+    if (!panel) return;
+    if (!state.moves.length) {
+      panel.innerHTML = `<span>Selected move</span><strong>Load or play a game first.</strong><p>Past games, PGN imports, and moves played on the board can all receive the same local review.</p>`;
+      return;
+    }
+    if (!state.cursor) {
+      panel.innerHTML = `<span>Starting position</span><strong>No move selected.</strong><p>Choose a move in the notation after review to see what was played, the engine's best move, and any available tactic.</p>`;
+      return;
+    }
+    const move = state.moves[state.cursor - 1];
+    const analysis = state.moveAnalyses[state.cursor - 1];
+    if (!analysis) {
+      panel.innerHTML = `<span>Move ${state.cursor} · ${escapeHtml(move.san)}</span><strong>Not analyzed yet.</strong><p>Choose <em>Review game</em>; results appear here as each move finishes.</p>`;
+      return;
+    }
+    const foundBest = sameMove(analysis.played, analysis.bestmove);
+    const quality = foundBest ? "Best move" : analysis.loss >= 300 ? "Blunder" : analysis.loss >= 150 ? "Mistake" : analysis.loss >= 80 ? "Inaccuracy" : "Playable move";
+    const tactic = analysis.positional;
+    const tacticText = tactic
+      ? `${foundBest ? "Tactic found" : "Tactic available"}: ${tactic.tagline}`
+      : foundBest ? "The engine agrees with this move; no named tactic was required." : "No named tactic cleared the classifier rules; the engine preferred a concrete improvement.";
+    const links = tactic?.recommendations?.length
+      ? `<div class="move-explanation-links">${tactic.recommendations.slice(0, 3).map(item => `<a href="${item.url}" target="_blank" rel="noreferrer">${escapeHtml(item.label)} puzzles ↗</a>`).join("")}</div>`
+      : "";
+    panel.innerHTML = `<span>Move ${analysis.moveNumber} · ${escapeHtml(move.san)} · ${quality}</span><strong>${escapeHtml(tacticText)}</strong><p>Played <b>${escapeHtml(move.san)}</b> · best <b>${escapeHtml(analysis.bestSan)}</b> · ${Math.round(analysis.loss)} cp loss · evaluation ${escapeHtml(analysis.playedEval)} instead of ${escapeHtml(analysis.bestEval)}.</p>${analysis.bestPv ? `<small>Best line: ${escapeHtml(analysis.bestPv)}</small>` : ""}${links}`;
+  }
+
+  function moveNumberAt(index) {
+    const fields = state.rootFen.split(" ");
+    const firstTurnOffset = fields[1] === "b" ? 1 : 0;
+    return (Number(fields[5]) || 1) + Math.floor((index + firstTurnOffset) / 2);
   }
 
   function rebuildPosition(ply) {
@@ -217,6 +264,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     $("#analysisAccuracyNote").textContent = "Click any move to revisit that position. Accuracy is measured locally from engine loss.";
     $("#analysisEngineEval").textContent = "—";
     $("#analysisEngineLine").textContent = "—";
+    renderMoveExplanation();
     renderInsights();
     renderEvaluationBar($("#analysisEvalBar"), null, state.chess.fen(), state.flipped);
   }
@@ -236,6 +284,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
   }
 
   function analysisGame() {
+    if (state.sourceGame) return { ...state.sourceGame };
     const black = state.headers.Black || "Black";
     const headerDate = state.headers.Date || "";
     const id = `analysis:${state.rootFen}:${state.moves.map(move => move.uci).join("-")}`;
@@ -308,6 +357,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     state.moves = [];
     state.cursor = 0;
     state.headers = {};
+    state.sourceGame = null;
     clearGameAnalysis();
     resetMoveSelection();
     arrows.clear();
@@ -422,6 +472,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
       state.moves = [];
       state.cursor = 0;
       state.headers = {};
+      state.sourceGame = null;
       clearGameAnalysis();
       resetMoveSelection();
       arrows.clear();
@@ -433,7 +484,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     }
   }
 
-  function loadPgn(value) {
+  function loadPgn(value, { sourceGame = null, closeDialog = true } = {}) {
     try {
       const source = value.trim();
       if (!source) throw new Error("Paste PGN text or choose a PGN file first.");
@@ -444,17 +495,22 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
       state.moves = loaded.history({ verbose: true }).map(move => ({ san: move.san, uci: uci(move) }));
       state.cursor = state.moves.length;
       state.headers = headers;
+      state.sourceGame = sourceGame;
       clearGameAnalysis();
       state.chess = loaded;
       resetMoveSelection();
       arrows.clear();
       renderBoard(state.moves.at(-1)?.uci || null);
       $("#analysisPgnError").textContent = "";
-      $("#analysisPgnDialog").close();
+      if (closeDialog && $("#analysisPgnDialog").open) $("#analysisPgnDialog").close();
       positionChanged("PGN loaded");
       onSound("move");
+      return true;
     } catch (error) {
-      $("#analysisPgnError").textContent = error.message || "That PGN could not be loaded.";
+      const message = error.message || "That PGN could not be loaded.";
+      if (closeDialog) $("#analysisPgnError").textContent = message;
+      else $("#analysisBoardError").textContent = message;
+      return false;
     }
   }
 
@@ -591,15 +647,16 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
         const loss = centipawnLoss(best, played);
         const prior = state.moves[index - 1];
         const previousMove = prior ? { from: prior.uci.slice(0, 2), to: prior.uci.slice(2, 4), wasCapture: prior.san.includes("x") } : undefined;
-        const positional = loss >= 80 ? classifyTactic(beforeFen, best.bestmove, { previousMove }) : null;
-        const finding = positional ? {
+        const positional = classifyTactic(beforeFen, best.bestmove, { previousMove });
+        const bestSan = positional?.san || sanForMove(beforeFen, best.bestmove);
+        const finding = loss >= 80 && positional ? {
           ...positional,
           loss,
-          moveNumber: Math.floor(index / 2) + 1,
+          moveNumber: moveNumberAt(index),
           color,
           played: move.uci,
           playedSan: move.san,
-          bestSan: positional.san || best.bestmove,
+          bestSan,
         } : null;
         if (finding) state.findings.push(finding);
         const eligibility = classifyPuzzleEligibility({
@@ -614,13 +671,13 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
             id: `${game.id}:${index + 1}:${eligibility.category.toLowerCase().replaceAll(" ", "-")}`,
             gameId: game.id,
             ply: index + 1,
-            moveNumber: Math.floor(index / 2) + 1,
+            moveNumber: moveNumberAt(index),
             fen: beforeFen,
             category: eligibility.category,
             loss: Math.min(eligibility.loss, 100000),
             impact: Math.min(eligibility.loss, 100000),
             best: best.bestmove,
-            bestSan: positional?.san || best.bestmove,
+            bestSan,
             bestEval: resultText(best, beforeFen),
             bestPv: pvToSan(beforeFen, best.pv),
             played: move.uci,
@@ -638,7 +695,19 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
             },
           });
         }
-        state.moveAnalyses[index] = { color, loss, accuracy: moveAccuracy(loss), bestmove: best.bestmove, played: move.uci, positional };
+        state.moveAnalyses[index] = {
+          color,
+          loss,
+          accuracy: moveAccuracy(loss),
+          moveNumber: moveNumberAt(index),
+          bestmove: best.bestmove,
+          bestSan,
+          bestEval: resultText(best, beforeFen),
+          playedEval: resultText(played, beforeFen),
+          bestPv: pvToSan(beforeFen, best.pv),
+          played: move.uci,
+          positional,
+        };
         const legal = findMove(chess, move.uci);
         if (!legal) throw new Error(`Move ${move.san} is no longer legal from the imported position.`);
         chess.move({ from: legal.from, to: legal.to, promotion: legal.promotion });
@@ -688,6 +757,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
       state.moves = [];
       state.cursor = 0;
       state.headers = {};
+      state.sourceGame = null;
       clearGameAnalysis();
       positionChanged("Edited position");
     }
@@ -702,6 +772,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     state.moves = [];
     state.cursor = 0;
     state.headers = {};
+    state.sourceGame = null;
     clearGameAnalysis();
     resetMoveSelection();
     arrows.clear();
@@ -729,6 +800,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     state.moves = [];
     state.cursor = 0;
     state.headers = {};
+    state.sourceGame = null;
     clearGameAnalysis();
     resetMoveSelection();
     arrows.clear();
@@ -776,6 +848,18 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
   renderBoard();
   return {
     refresh() { renderPalette(); renderBoard(); if (state.liveEngine) positionChanged("Engine changed"); },
+    loadPgn(value, game = null) { return loadPgn(value, { sourceGame: game, closeDialog: false }); },
+    async analyzePgn(value, game = null) {
+      if (state.accuracyRunning) {
+        state.accuracyRunToken += 1;
+        state.accuracyEngine?.close();
+        state.accuracyEngine = null;
+        while (state.accuracyRunning) await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      if (!loadPgn(value, { sourceGame: game, closeDialog: false })) return false;
+      await measureAccuracy();
+      return true;
+    },
     cancel() {
       cancelAnalysis("Engine changed — analysis cancelled.");
       if (state.accuracyRunning) {

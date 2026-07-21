@@ -5,8 +5,10 @@ DoBackChess is a focused, static browser chess tool with three product surfaces:
 1. **Play engines** — play Stockfish 18 or Reckless from the normal position or
    with knight, rook, or queen odds for either side.
 2. **Analysis board** — import one PGN, load a FEN, or build a position without
-   changing the existing board workflow. A full-game review measures accuracy,
-   finds missed motifs, and creates practice positions.
+   changing the existing board workflow. You can also browse up to 100 recent
+   Chess.com or Lichess games from a scrollable picker. A full-game review
+   measures accuracy, explains every selected move, identifies available or
+   missed tactics, and creates practice positions.
 3. **Review games** — import 20, 35, or 50 Chess.com, Lichess, or PGN games,
    summarize accuracy, find recurring missed tactics, practice positions from
    those games, and open matching tagged puzzle themes on Lichess.
@@ -61,9 +63,9 @@ must point at GitHub Pages before HTTPS can be enabled.
 - `static/lib/analysis-board.js` provides click and drag legal play, PGN import,
   clickable notation history, position editing, FEN loading, arrows, live
   analysis, explicit queen/rook/bishop/knight promotion, and progressive
-  per-game accuracy through the selected engine provider, missed-motif review,
-  Lichess theme recommendations, and conversion of important mistakes into the
-  existing puzzle trainer.
+  per-game accuracy through the selected engine provider. Each analyzed move
+  shows the played move, engine best move, evaluation change, best line, and
+  any classified tactic. Important mistakes still become trainer positions.
 - `src/chess-detect.ts` is the typed, browser-safe port of the pinned MIT
   `aslyamov/chess_detect` tactical detectors. The checked-in build at
   `static/lib/chess-detect.js` classifies ten concrete themes, produces readable
@@ -86,7 +88,9 @@ must point at GitHub Pages before HTTPS can be enabled.
   reportable mistake; the result includes aggregate Lichess recommendations and
   a bounded own-game puzzle deck.
 - `static/lib/game-import.js` accepts Chess.com, Lichess, multi-game PGN files,
-  and pasted SAN move notation for training decks and chess reports.
+  and pasted SAN move notation for training decks and chess reports. Retained
+  Chess.com and Lichess records include their PGN so the Analysis board can
+  reopen and review any game from its scrollable history picker.
 - `static/config.js` contains public deployment configuration. Never put engine
   provider keys or other secrets there.
 

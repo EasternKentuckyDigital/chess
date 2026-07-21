@@ -1,6 +1,6 @@
 import { Chess } from "../vendor/chess/chess.js";
 import { createEngine } from "./engine-providers.js?v=21";
-import { DEFAULT_REPORT_GAMES, importGames, getGameDetail, normalizeReportGameLimit } from "./game-import.js?v=21";
+import { DEFAULT_REPORT_GAMES, importGames, getGameDetail, normalizeReportGameLimit } from "./game-import.js?v=25";
 import { centipawnLoss, oppositeSideResult, sideToMoveScore } from "./engine-score.js";
 import { classifyPuzzleEligibility } from "./puzzle-rules.js";
 import { classifyTacticalLine } from "./tactical-themes.js";

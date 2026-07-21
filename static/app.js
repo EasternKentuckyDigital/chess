@@ -1,14 +1,14 @@
 import { Chess } from "./vendor/chess/chess.js";
-import { DEFAULT_REPORT_GAMES, exportImportedGames, importGames, importPgnText, getGameDetail as buildGameDetail, normalizeReportGameLimit, reportSelectionCount, restoreImportedGames } from "./lib/game-import.js?v=21";
+import { DEFAULT_REPORT_GAMES, exportImportedGames, getGameRecord, importGames, importPgnText, getGameDetail as buildGameDetail, normalizeReportGameLimit, reportSelectionCount, restoreImportedGames } from "./lib/game-import.js?v=25";
 import { ANALYSIS_LEVELS, analysisLimits, createEngine, engineDescriptor, engineDescriptors, engineFingerprint, isEngineCancellation, normalizeAnalysisLevel } from "./lib/engine-providers.js?v=21";
 import { activateDeviceProfile, clearProfileSession, continueAsGuest, listDeviceProfiles, restoreProfileSession } from "./lib/profile-store.js";
 import { classifyPuzzleEligibility } from "./lib/puzzle-rules.js";
 import { createBoardArrows } from "./lib/board-arrows.js";
 import { FEATURED_MASTERS, fetchGrandmasterHandles } from "./lib/masters.js";
-import { initAnalysisBoard } from "./lib/analysis-board.js?v=24";
+import { initAnalysisBoard } from "./lib/analysis-board.js?v=25";
 import { cloudConfigured, createEmailAccount, initCloudSession, loadCloudJson, queueCloudJson, sendEmailPasswordReset, signInOrLink, signInWithEmail, signOutCloud } from "./lib/auth-sync.js";
 import { initEnginePlay } from "./lib/engine-play.js?v=21";
-import { buildChessReport } from "./lib/chess-report.js?v=24";
+import { buildChessReport } from "./lib/chess-report.js?v=25";
 import { sideToMoveScore } from "./lib/engine-score.js";
 import { renderEvaluationBar } from "./lib/eval-bar.js";
 import { resolveSiteTheme } from "./lib/theme.js?v=21";
@@ -58,6 +58,7 @@ const state = {
   reportAbortMode: null,
   reviewReport: null,
   reviewGames: [],
+  analysisHistoryGames: [],
   pointerDrag: null,
   suppressClick: false,
   practiceEngine: null,
@@ -291,6 +292,77 @@ function showAbout() {
   hideMainViews();
   $("#aboutPage").classList.remove("hidden");
   setActiveNav("about");
+}
+
+function renderAnalysisGameHistory(games, { username = "", source = "chesscom", saved = false } = {}) {
+  state.analysisHistoryGames = games;
+  const list = $("#analysisGameHistory");
+  if (!games.length) {
+    list.innerHTML = `<p class="analysis-history-empty">No saved standard games were found. Refresh games to import public history from ${source === "lichess" ? "Lichess" : "Chess.com"}.</p>`;
+    $("#analysisGamesStatus").textContent = username ? `No games loaded for ${username}.` : "Enter a username to load up to 100 recent games.";
+    return;
+  }
+  $("#analysisGamesStatus").textContent = `${games.length} ${saved ? "saved" : "recent"} ${games.length === 1 ? "game" : "games"} for ${username}. Scroll and choose one to analyze.`;
+  list.innerHTML = games.map(game => `<div role="listitem"><button type="button" class="analysis-history-game" data-analysis-history-id="${escapeHtml(game.id)}"><span class="analysis-history-result ${game.result === "Loss" ? "loss" : game.result === "Win" ? "win" : "draw"}">${escapeHtml(game.result)}</span><span class="analysis-history-main"><strong>vs ${escapeHtml(game.opponent)}</strong><small>${escapeHtml(game.date || "Unknown date")} · ${escapeHtml(game.timeClass || "Game")} · ${escapeHtml(game.playerColor || "white")}</small><small>${escapeHtml(game.opening || "Unknown opening")}</small></span><span class="analysis-history-action">Analyze game</span></button></div>`).join("");
+  list.querySelectorAll("[data-analysis-history-id]").forEach(button => button.addEventListener("click", () => analyzeHistoryGame(button.dataset.analysisHistoryId)));
+}
+
+async function loadSavedAnalysisHistory() {
+  const username = $("#analysisGamesUsername").value.trim();
+  const source = $("#analysisGamesSource").value;
+  $("#analysisGamesError").textContent = "";
+  if (!username) return renderAnalysisGameHistory([], { username, source, saved: true });
+  const saved = await loadCloudJson(libraryKey(source, username), loadJson(libraryKey(source, username), null));
+  const games = saved?.records?.length ? restoreImportedGames(saved.records) : [];
+  renderAnalysisGameHistory(games, { username, source, saved: true });
+}
+
+async function openAnalysisGames() {
+  const dialog = $("#analysisGamesDialog");
+  const lastUser = localStorage.getItem("replay:last-user") || "";
+  if (!$("#analysisGamesUsername").value) $("#analysisGamesUsername").value = lastUser;
+  $("#analysisGamesSource").value = localStorage.getItem("replay:analysis-games-source") || "chesscom";
+  dialog.showModal();
+  await loadSavedAnalysisHistory();
+}
+
+async function refreshAnalysisGameHistory() {
+  const username = $("#analysisGamesUsername").value.trim();
+  const source = $("#analysisGamesSource").value;
+  const button = $("#analysisGamesForm button");
+  $("#analysisGamesError").textContent = "";
+  button.disabled = true;
+  button.textContent = "Loading…";
+  $("#analysisGamesStatus").textContent = `Loading recent ${source === "lichess" ? "Lichess" : "Chess.com"} games…`;
+  try {
+    const data = await importGames({ username, source, scope: "latest100", gameLimit: 50 });
+    if (!data.games.length) throw new Error(data.emptyMessage || "No public standard games were found.");
+    await persistGameLibrary({ data, username, source, scope: "latest100" });
+    localStorage.setItem("replay:last-user", username);
+    localStorage.setItem("replay:analysis-games-source", source);
+    await loadSavedAnalysisHistory();
+    renderAnalysisGameHistory(state.analysisHistoryGames, { username, source, saved: false });
+  } catch (error) {
+    await loadSavedAnalysisHistory();
+    $("#analysisGamesError").textContent = error.message || "Games could not be loaded.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Refresh games";
+  }
+}
+
+async function analyzeHistoryGame(id) {
+  try {
+    const record = getGameRecord(id);
+    $("#analysisGamesDialog").close();
+    showAnalysis();
+    const game = { ...record.summary, id: record.id, url: record.url || "" };
+    showToast(`Reviewing ${game.opponent ? `game vs ${game.opponent}` : "selected game"} with ${engineDescriptor(state.prefs.engineProvider).name}.`);
+    await generalAnalysisBoard.analyzePgn(record.pgn, game);
+  } catch (error) {
+    $("#analysisGamesError").textContent = error.message || "That game could not be analyzed.";
+    if (!$("#analysisGamesDialog").open) $("#analysisGamesDialog").showModal();
+  }
 }
 
 function savePlayedGame(game) {
@@ -1605,6 +1677,13 @@ $("#brandHome").addEventListener("click", event => { event.preventDefault(); sho
 $("#navAnalysis").addEventListener("click", showAnalysis);
 $("#navPlay").addEventListener("click", showPlay);
 $("#navReview").addEventListener("click", showTacticsReport);
+$("#navAbout").addEventListener("click", showAbout);
+$("#analysisGamesButton").addEventListener("click", openAnalysisGames);
+$("#analysisGamesForm").addEventListener("submit", event => { event.preventDefault(); refreshAnalysisGameHistory(); });
+$("#analysisGamesSource").addEventListener("change", () => {
+  localStorage.setItem("replay:analysis-games-source", $("#analysisGamesSource").value);
+  loadSavedAnalysisHistory();
+});
 $("#gmSearch").addEventListener("input", event => renderGrandmasterDirectory(event.currentTarget.value));
 
 $$('[data-close]').forEach(button => button.addEventListener("click", () => $(`#${button.dataset.close}`).close()));

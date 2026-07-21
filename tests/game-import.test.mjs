@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getGameDetail, importPgnText, normalizeReportGameLimit, reportSelectionCount, splitPgnGames } from "../static/lib/game-import.js";
+import { getGameDetail, getGameRecord, importPgnText, normalizeReportGameLimit, reportSelectionCount, splitPgnGames } from "../static/lib/game-import.js";
 
 const TOURNAMENT_PGN = `[Event "County Championship"]
 [Site "Lexington, KY"]
@@ -27,6 +27,11 @@ test("splits and imports multiple tournament PGNs from the named player's perspe
   assert.deepEqual(imported.games.map(game => game.playerColor), ["white", "black"]);
   assert.deepEqual(imported.games.map(game => game.opponent), ["Bob Example", "Carol Example"]);
   assert.equal(getGameDetail(imported.games[0].id).moves.length, 6);
+  const record = getGameRecord(imported.games[0].id);
+  assert.match(record.pgn, /County Championship/);
+  assert.equal(record.summary.opponent, "Bob Example");
+  record.summary.opponent = "Changed copy";
+  assert.equal(getGameRecord(imported.games[0].id).summary.opponent, "Bob Example");
 });
 
 test("accepts straight SAN notation and applies the selected fallback color", async () => {
@@ -43,6 +48,7 @@ test("accepts straight SAN notation and applies the selected fallback color", as
 test("rejects empty and unplayable tournament input with explicit messages", async () => {
   await assert.rejects(importPgnText({ text: "" }), /Choose a PGN file or paste tournament notation/);
   await assert.rejects(importPgnText({ text: "This is not a chess score" }), /legal standard chess game/);
+  assert.throws(() => getGameRecord("missing"), /Refresh your game history/);
 });
 
 test("training uses a configurable 20-to-50 game floor while retaining larger seven-day sets", () => {

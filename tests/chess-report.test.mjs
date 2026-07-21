@@ -19,12 +19,12 @@ function reportFixture() {
   };
 }
 
-test("the website exposes only the focused Play, Analysis, and Review routes", async () => {
+test("the website exposes focused Play, Analysis, Review, and restored About routes", async () => {
   const html = await readFile(new URL("../static/index.html", import.meta.url), "utf8");
   const app = await readFile(new URL("../static/app.js", import.meta.url), "utf8");
-  const visibleRoutes = [...html.matchAll(/id="nav(Play|Analysis|Review)"/g)].map(match => match[1]);
-  assert.deepEqual(visibleRoutes, ["Play", "Analysis", "Review"]);
-  assert.doesNotMatch(html, /id="nav(?:Home|Masters|Report|TacticsReport|About|Training)"/);
+  const visibleRoutes = [...html.matchAll(/id="nav(Play|Analysis|Review|About)"/g)].map(match => match[1]);
+  assert.deepEqual(visibleRoutes, ["Play", "Analysis", "Review", "About"]);
+  assert.doesNotMatch(html, /id="nav(?:Home|Masters|Report|TacticsReport|Training)"/);
   assert.match(html, /id="analysisPage"/);
   assert.match(html, /id="playPage"/);
   assert.match(html, /id="tacticsReportPage"/);
@@ -33,6 +33,10 @@ test("the website exposes only the focused Play, Analysis, and Review routes", a
   assert.match(html, /20 games/);
   assert.match(html, /50 games/);
   assert.match(html, /id="analysisInsights"/);
+  assert.match(html, /id="analysisGamesDialog"/);
+  assert.match(html, /id="analysisGameHistory"/);
+  assert.match(html, /id="analysisMoveExplanation"/);
+  assert.match(html, /id="aboutPage"/);
   assert.match(html, /Practice my positions/);
   assert.match(html, /data-analysis-level="superquick"/);
   assert.match(html, /data-report-game-limit="20"/);
@@ -40,6 +44,12 @@ test("the website exposes only the focused Play, Analysis, and Review routes", a
   assert.match(app, /analysisLevel: "superquick"/);
   assert.match(app, /reportGameLimit: DEFAULT_REPORT_GAMES/);
   assert.match(app, /reportMode: mode === "tactics" \? "combined" : mode/);
+  assert.match(app, /scope: "latest100"/);
+  assert.match(app, /generalAnalysisBoard\.analyzePgn/);
+  assert.match(app, /navAbout/);
+  assert.match(app, /chess-report\.js\?v=25/);
+  const chessReportSource = await readFile(new URL("../static/lib/chess-report.js", import.meta.url), "utf8");
+  assert.match(chessReportSource, /game-import\.js\?v=25/);
 });
 
 test("report counts losses at 80 cp, ignores 79 cp, reports progress, and closes its engine", async () => {

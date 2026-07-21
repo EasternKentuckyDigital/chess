@@ -41,8 +41,12 @@ budget keeps each state document below Firestore's document-size ceiling.
 
 Review analyzes the latest 20 games by default and can be set to 35 or 50 on the
 Review page. Single-game analysis accepts PGN, FEN, and positions built on the
-existing board. Both paths use the same puzzle threshold and Lichess-theme
-mapping.
+existing board. It can also restore the saved Chess.com or Lichess library,
+display up to 100 recent games in a scrollable picker, and send a selected PGN
+straight into progressive engine review. Each analyzed notation move receives
+its own played/best move comparison, evaluation change, principal variation,
+and chess_detect explanation. Both paths use the same puzzle threshold and
+Lichess-theme mapping.
 
 Deploy [`firestore.rules`](../firestore.rules) with the Firebase CLI so each UID
 can read and write only its own state. Firebase web configuration values are

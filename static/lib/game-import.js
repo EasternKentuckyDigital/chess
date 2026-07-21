@@ -360,3 +360,15 @@ export function getGameDetail(id) {
   });
   return { summary: record.summary, frames, moves, url: record.url };
 }
+
+export function getGameRecord(id) {
+  const record = records.get(id);
+  if (!record) throw new Error("Game not found. Refresh your game history and try again.");
+  return {
+    id: record.id,
+    username: record.username,
+    pgn: record.pgn,
+    url: record.url,
+    summary: { ...record.summary },
+  };
+}
