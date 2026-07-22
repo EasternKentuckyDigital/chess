@@ -34,11 +34,29 @@ function sanForMove(fen, moveUci) {
 function resultText(result, fen) {
   const whiteFactor = fen.split(" ")[1] === "w" ? 1 : -1;
   if (result.mate !== null) {
+    if (result.mate === 0) return "Mate";
     const mate = result.mate * whiteFactor;
     return mate > 0 ? `M${mate}` : `−M${Math.abs(mate)}`;
   }
   const pawns = ((result.cp || 0) * whiteFactor) / 100;
   return `${pawns >= 0 ? "+" : "−"}${Math.abs(pawns).toFixed(2)}`;
+}
+
+function engineTacticFallback(result) {
+  if (result?.mate !== null && result.mate > 0) return {
+    tagline: "Forced mating line",
+    motifIds: ["checkmate"],
+    recommendations: [{ id: "mate", label: "Checkmate", advice: "Calculate checks and forced replies until the king has no escape.", url: "https://lichess.org/training/mate" }],
+    analyzer: "engine-fallback",
+  };
+  const promotion = result?.bestmove?.[4];
+  if (promotion) return {
+    tagline: promotion === "q" ? "Promotion tactic" : "Underpromotion tactic",
+    motifIds: [promotion === "q" ? "promotion" : "underPromotion"],
+    recommendations: [{ id: promotion === "q" ? "promotion" : "underPromotion", label: promotion === "q" ? "Promotion" : "Underpromotion", advice: "Calculate every promotion choice and its forcing consequences.", url: `https://lichess.org/training/${promotion === "q" ? "promotion" : "underPromotion"}` }],
+    analyzer: "engine-fallback",
+  };
+  return null;
 }
 
 function moveAccuracy(loss) {
@@ -72,6 +90,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     cursor: 0,
     headers: {},
     sourceGame: null,
+    reviewColor: $("#analysisPerspective").value === "b" ? "b" : "w",
     moveAnalyses: [],
     findings: [],
     puzzles: [],
@@ -129,7 +148,19 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     if (!move) return `<span class="analysis-move-empty"></span>`;
     const analysis = state.moveAnalyses[ply - 1];
     const accuracy = analysis ? `<small class="move-accuracy ${accuracyClass(analysis.accuracy)}">${analysis.accuracy.toFixed(0)}</small>` : "";
-    return `<button type="button" class="analysis-move ${state.cursor === ply ? "current" : ""}" data-analysis-ply="${ply}" title="Go to ${move.san}${analysis ? ` · ${analysis.accuracy.toFixed(1)}% DoBackChess accuracy · ${Math.round(analysis.loss)} cp loss` : ""}"><span>${move.san}</span>${accuracy}</button>`;
+    return `<button type="button" class="analysis-move ${state.cursor === ply ? "current" : ""}" data-analysis-ply="${ply}" ${state.cursor === ply ? 'aria-current="move"' : ""} title="Go to ${move.san}${analysis ? ` · ${analysis.accuracy.toFixed(1)}% DoBackChess accuracy · ${Math.round(analysis.loss)} cp loss` : ""}"><span>${move.san}</span>${accuracy}</button>`;
+  }
+
+  function renderMoveNavigation() {
+    const move = state.cursor ? state.moves[state.cursor - 1] : null;
+    $("#analysisFirstMoveButton").disabled = state.cursor === 0;
+    $("#analysisPreviousMoveButton").disabled = state.cursor === 0;
+    $("#analysisNextMoveButton").disabled = state.cursor >= state.moves.length;
+    $("#analysisLastMoveButton").disabled = state.cursor >= state.moves.length;
+    $("#analysisMoveStatus").textContent = move ? `${state.cursor} / ${state.moves.length} · ${move.san}` : `Start · ${state.moves.length} moves`;
+    const white = state.headers.White || "White";
+    const black = state.headers.Black || "Black";
+    $("#analysisGameTitle").textContent = state.moves.length ? `${white} – ${black}` : "Move list";
   }
 
   function renderNotation() {
@@ -149,8 +180,8 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     $("#analysisNotation").innerHTML = html || `<p>Play moves or import PGN to build notation.</p>`;
     $("#analysisNotation").querySelectorAll("[data-analysis-ply]").forEach(button => button.addEventListener("click", () => setCursor(Number(button.dataset.analysisPly))));
     $("#analysisAccuracyButton").disabled = !state.moves.length && !state.accuracyRunning;
+    renderMoveNavigation();
     renderMoveExplanation();
-    requestAnimationFrame(() => $("#analysisNotation .analysis-move.current")?.scrollIntoView({ block: "nearest" }));
   }
 
   function renderMoveExplanation() {
@@ -300,43 +331,62 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     };
   }
 
+  function studiedColor() {
+    return state.reviewColor;
+  }
+
+  function reviewMoveRow(item, detail, action = "Show move") {
+    const move = item.move || state.moves[item.ply - 1];
+    return `<button type="button" class="review-move-row" data-review-ply="${item.ply}"><span class="review-move-number">${item.moveNumber}${item.color === "b" ? "…" : "."}</span><span><b>${escapeHtml(move?.san || item.playedSan || "Move")}</b><small>${escapeHtml(detail)}</small></span><span class="review-move-loss">${item.loss >= 80 ? `−${(item.loss / 100).toFixed(1)}` : "✓"}</span><span class="review-move-action">${action} ›</span></button>`;
+  }
+
   function renderInsights() {
     const panel = $("#analysisInsights");
     if (!panel) return;
+    const player = studiedColor();
+    const playerLabel = player === "w" ? (state.headers.White || "White") : (state.headers.Black || "Black");
+    const opponentLabel = player === "w" ? (state.headers.Black || "Black") : (state.headers.White || "White");
     const mistakes = state.moveAnalyses
       .map((analysis, index) => analysis ? { ...analysis, ply: index + 1, move: state.moves[index] } : null)
-      .filter(item => item?.loss >= 80);
-    if (!state.findings.length && !mistakes.length) {
+      .filter(item => item?.color === player && item.loss >= 80);
+    const missed = state.findings.filter(finding => finding.color === player);
+    const usedAgainst = state.moveAnalyses
+      .map((analysis, index) => analysis ? { ...analysis, ply: index + 1, move: state.moves[index] } : null)
+      .filter(item => item?.color !== player && item.positional && sameMove(item.played, item.bestmove));
+    if (!missed.length && !mistakes.length && !usedAgainst.length) {
       const reviewed = state.moveAnalyses.some(Boolean);
-      panel.innerHTML = `<div class="analysis-card-heading"><span class="panel-kicker">Game tactic summary</span><span>chess_detect</span></div><p>${reviewed ? "No move lost 0.8 pawns or more, and no missed named tactic cleared the classifier rules in the reviewed moves." : "Import or play a game, then choose <strong>Review game</strong>. Every detected tactic and costly mistake will be listed here and linked back to its board position."}</p>`;
+      panel.innerHTML = `<div class="analysis-card-heading"><div><span class="panel-kicker">Tactics from this game</span><h2>What to work on</h2></div><span>chess_detect</span></div><p>${reviewed ? `No ${escapeHtml(playerLabel)} move lost 0.8 pawns or more, and no named tactic cleared the classifier rules.` : "Review the game to see tactics you missed, tactics used against you, and direct links to the matching moves and Lichess practice."}</p>`;
       return;
     }
-    const recommendations = aggregateRecommendations(state.findings);
+    const recommendations = aggregateRecommendations(missed);
     const themes = recommendations.length
       ? recommendations.map((item, themeIndex) => {
-        const matching = state.findings.filter(finding => finding.recommendations?.some(recommendation => recommendation.id === item.id));
-        const moves = matching.map(finding => `<button type="button" class="review-move-row" data-review-ply="${finding.ply}"><span><b>Move ${finding.moveNumber}${finding.color === "b" ? "…" : "."} ${escapeHtml(finding.playedSan)}</b><small>${escapeHtml(finding.tagline)}</small></span><span><strong>${(finding.loss / 100).toFixed(1)}</strong><small>pawns lost</small></span><span>View board →</span></button>`).join("");
-        return `<section class="analysis-theme-group"><button type="button" class="analysis-theme-toggle" data-review-theme="${themeIndex}" aria-expanded="false"><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.advice)}</small></span><b>${item.count} ${item.count === 1 ? "miss" : "misses"}</b><span class="theme-toggle-action">Show moves ↓</span></button><div class="analysis-theme-moves hidden" data-review-theme-moves="${themeIndex}">${moves}<a class="theme-practice-link" href="${item.url}" target="_blank" rel="noreferrer">Practice ${escapeHtml(item.label.toLowerCase())} on Lichess ↗</a></div></section>`;
+        const matching = missed.filter(finding => finding.recommendations?.some(recommendation => recommendation.id === item.id));
+        const moves = matching.map(finding => reviewMoveRow(finding, finding.tagline)).join("");
+        return `<section class="analysis-theme-group"><button type="button" class="analysis-theme-toggle" data-review-theme="${themeIndex}" aria-expanded="false"><span class="tactic-theme-icon">!</span><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.advice)}</small></span><b>${item.count}</b><span class="theme-toggle-action">Moves ›</span></button><div class="analysis-theme-moves hidden" data-review-theme-moves="${themeIndex}">${moves}<a class="theme-practice-link" href="${item.url}" target="_blank" rel="noreferrer">Practice tagged ${escapeHtml(item.label.toLowerCase())} puzzles on Lichess ↗</a></div></section>`;
       }).join("")
-      : `<p class="analysis-insights-empty">No named Lichess tactic repeated; the engine still found concrete improvements.</p>`;
+      : `<p class="analysis-insights-empty">No named tactic was missed; review the costly moves below for concrete improvements.</p>`;
     const mistakeRows = mistakes
       .sort((left, right) => right.loss - left.loss)
       .map(item => {
         const quality = item.loss >= 300 ? "Blunder" : item.loss >= 150 ? "Mistake" : "Inaccuracy";
         const tactic = item.positional?.tagline || "Concrete engine improvement";
-        return `<button type="button" class="review-move-row" data-review-ply="${item.ply}"><span><b>Move ${item.moveNumber}${item.color === "b" ? "…" : "."} ${escapeHtml(item.move.san)}</b><small>${escapeHtml(quality)} · ${escapeHtml(tactic)}</small></span><span><strong>${(item.loss / 100).toFixed(1)}</strong><small>pawns lost</small></span><span>View board →</span></button>`;
+        return reviewMoveRow(item, `${quality} · ${tactic}`);
       }).join("");
-    panel.innerHTML = `<div class="analysis-card-heading"><div><span class="panel-kicker">Game tactic summary</span><h2>Your missed chances</h2></div><strong>${state.puzzles.length} practice ${state.puzzles.length === 1 ? "position" : "positions"}</strong></div><div class="analysis-review-stats"><div><strong>${state.findings.length}</strong><span>named tactic ${state.findings.length === 1 ? "miss" : "misses"}</span></div><div><strong>${mistakes.length}</strong><span>costly ${mistakes.length === 1 ? "move" : "moves"}</span></div><div><strong>${recommendations.length}</strong><span>tactic ${recommendations.length === 1 ? "theme" : "themes"}</span></div></div><div class="analysis-review-section"><div class="review-section-heading"><div><span class="panel-kicker">Tactic summary</span><h3>Choose a theme to see every missed move</h3></div></div><div class="analysis-theme-groups">${themes}</div></div><div class="analysis-review-section"><div class="review-section-heading"><div><span class="panel-kicker">All costly moves</span><h3>Tactics, mistakes, and inaccuracies</h3></div><span>${mistakes.length} total</span></div><div class="analysis-mistake-list">${mistakeRows || `<p class="analysis-insights-empty">No move lost 0.8 pawns or more.</p>`}</div></div>${state.puzzles.length ? `<button id="analysisPracticeButton" class="primary-button full-button" type="button">Practice all important positions from this game</button>` : ""}`;
+    const usedRows = usedAgainst.map(item => {
+      const motif = item.positional.recommendations?.[0];
+      return `${reviewMoveRow(item, `${opponentLabel} found ${item.positional.tagline}`, "Replay")}${motif ? `<a class="used-tactic-practice" href="${motif.url}" target="_blank" rel="noreferrer">Practice ${escapeHtml(motif.label.toLowerCase())} puzzles ↗</a>` : ""}`;
+    }).join("");
+    panel.innerHTML = `<div class="analysis-card-heading"><div><span class="panel-kicker">Tactics from this game</span><h2>What to work on</h2></div><strong>${escapeHtml(playerLabel)} perspective</strong></div><div class="analysis-review-stats"><div><strong>${missed.length}</strong><span>tactics missed</span></div><div><strong>${mistakes.length}</strong><span>costly moves</span></div><div><strong>${usedAgainst.length}</strong><span>used against you</span></div></div><div class="analysis-review-section"><div class="review-section-heading"><div><span class="panel-kicker">You missed</span><h3>Opportunities to recognize sooner</h3></div><span>${missed.length}</span></div><div class="analysis-theme-groups">${themes}</div></div><div class="analysis-review-section"><div class="review-section-heading"><div><span class="panel-kicker">Used against you</span><h3>Tactics ${escapeHtml(opponentLabel)} found</h3></div><span>${usedAgainst.length}</span></div><div class="analysis-used-list">${usedRows || `<p class="analysis-insights-empty">No named tactic by ${escapeHtml(opponentLabel)} matched the engine's best move.</p>`}</div></div><div class="analysis-review-section"><div class="review-section-heading"><div><span class="panel-kicker">Your mistakes</span><h3>Every costly move</h3></div><span>${mistakes.length}</span></div><div class="analysis-mistake-list">${mistakeRows || `<p class="analysis-insights-empty">No ${escapeHtml(playerLabel)} move lost 0.8 pawns or more.</p>`}</div></div>${state.puzzles.length ? `<button id="analysisPracticeButton" class="primary-button full-button" type="button">Practice important positions from this game</button>` : ""}`;
     panel.querySelectorAll("[data-review-theme]").forEach(button => button.addEventListener("click", () => {
       const moves = panel.querySelector(`[data-review-theme-moves="${button.dataset.reviewTheme}"]`);
       const expanded = button.getAttribute("aria-expanded") === "true";
       button.setAttribute("aria-expanded", String(!expanded));
-      button.querySelector(".theme-toggle-action").textContent = expanded ? "Show moves ↓" : "Hide moves ↑";
+      button.querySelector(".theme-toggle-action").textContent = expanded ? "Moves ›" : "Close ×";
       moves.classList.toggle("hidden", expanded);
     }));
     panel.querySelectorAll("[data-review-ply]").forEach(button => button.addEventListener("click", () => {
       setCursor(Number(button.dataset.reviewPly));
-      if (globalThis.matchMedia?.("(max-width: 760px)").matches) $("#analysisBoardShell").scrollIntoView({ behavior: "smooth", block: "start" });
     }));
     $("#analysisPracticeButton")?.addEventListener("click", () => onPracticePuzzles({ puzzles: state.puzzles, game: analysisGame(), detail: reviewDetail() }));
   }
@@ -520,6 +570,9 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
       state.cursor = state.moves.length;
       state.headers = headers;
       state.sourceGame = sourceGame;
+      if (sourceGame?.playerColor === "black" || sourceGame?.playerColor === "b") state.reviewColor = "b";
+      else if (sourceGame?.playerColor === "white" || sourceGame?.playerColor === "w") state.reviewColor = "w";
+      $("#analysisPerspective").value = state.reviewColor;
       clearGameAnalysis();
       state.chess = loaded;
       resetMoveSelection();
@@ -671,7 +724,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
         const loss = centipawnLoss(best, played);
         const prior = state.moves[index - 1];
         const previousMove = prior ? { from: prior.uci.slice(0, 2), to: prior.uci.slice(2, 4), wasCapture: prior.san.includes("x") } : undefined;
-        const positional = classifyTactic(beforeFen, best.bestmove, { previousMove });
+        const positional = classifyTactic(beforeFen, best.bestmove, { previousMove }) || engineTacticFallback(best);
         const bestSan = positional?.san || sanForMove(beforeFen, best.bestmove);
         const finding = loss >= 80 && positional ? {
           ...positional,
@@ -818,6 +871,14 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     positionChanged("Move undone");
   });
   $("#analysisFlipButton").addEventListener("click", () => { state.flipped = !state.flipped; renderBoard(); });
+  $("#analysisFirstMoveButton").addEventListener("click", () => setCursor(0));
+  $("#analysisPreviousMoveButton").addEventListener("click", () => setCursor(state.cursor - 1));
+  $("#analysisNextMoveButton").addEventListener("click", () => setCursor(state.cursor + 1));
+  $("#analysisLastMoveButton").addEventListener("click", () => setCursor(state.moves.length));
+  $("#analysisPerspective").addEventListener("change", event => {
+    state.reviewColor = event.currentTarget.value === "b" ? "b" : "w";
+    renderInsights();
+  });
   $("#analysisClearButton").addEventListener("click", () => {
     cancelAnalysis("Position changed — analysis cancelled.");
     state.chess.clear();

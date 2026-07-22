@@ -58,10 +58,22 @@ test("the home page exposes every major study surface and analysis review stays 
   for (const view of ["analysis", "play", "review", "report", "masters", "about"]) {
     assert.match(html, new RegExp(`data-home-view="${view}"`));
   }
-  assert.match(css, /body\.analysis-room \{ overflow: auto; \}/);
-  assert.match(css, /grid-template-columns: minmax\(480px,1fr\) minmax\(460px,620px\)/);
-  assert.match(analysisBoard, /Choose a theme to see every missed move/);
+  assert.match(css, /body\.analysis-room \{[^}]*overflow: auto;[^}]*background: var\(--bg-muted\);/);
+  assert.match(css, /grid-template-columns: minmax\(500px,800px\) minmax\(320px,390px\) minmax\(300px,390px\)/);
+  assert.match(html, /class="analysis-sidebar analysis-main-panel"/);
+  assert.match(html, /class="analysis-card analysis-insights analysis-tactics-column"/);
+  assert.match(html, /id="analysisPerspective"/);
+  for (const id of ["analysisFirstMoveButton", "analysisPreviousMoveButton", "analysisNextMoveButton", "analysisLastMoveButton"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(analysisBoard, /Opportunities to recognize sooner/);
+  assert.match(analysisBoard, /Used against you/);
+  assert.match(analysisBoard, /Every costly move/);
+  assert.match(analysisBoard, /sourceGame\?\.playerColor === "black"/);
+  assert.match(analysisBoard, /Forced mating line/);
+  assert.match(analysisBoard, /Practice tagged .* puzzles on Lichess/);
   assert.match(analysisBoard, /data-review-theme=/);
   assert.match(analysisBoard, /data-review-ply=/);
-  assert.match(analysisBoard, /All costly moves/);
+  assert.match(analysisBoard, /analysisNextMoveButton/);
+  assert.doesNotMatch(analysisBoard, /scrollIntoView/);
 });

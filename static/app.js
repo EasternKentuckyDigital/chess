@@ -5,7 +5,7 @@ import { activateDeviceProfile, clearProfileSession, continueAsGuest, listDevice
 import { classifyPuzzleEligibility } from "./lib/puzzle-rules.js";
 import { createBoardArrows } from "./lib/board-arrows.js";
 import { FEATURED_MASTERS, fetchGrandmasterHandles } from "./lib/masters.js";
-import { initAnalysisBoard } from "./lib/analysis-board.js?v=25";
+import { initAnalysisBoard } from "./lib/analysis-board.js?v=26";
 import { cloudConfigured, createEmailAccount, initCloudSession, loadCloudJson, queueCloudJson, sendEmailPasswordReset, signInOrLink, signInWithEmail, signOutCloud } from "./lib/auth-sync.js";
 import { initEnginePlay } from "./lib/engine-play.js?v=21";
 import { buildChessReport } from "./lib/chess-report.js?v=25";
