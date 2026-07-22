@@ -41,11 +41,11 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=26">
+  <link rel="stylesheet" href="./styles.css?v=27">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#analysis" id="brandHome">DoBackChess</a>
+    <a class="brand" href="#home" id="brandHome" aria-label="DoBackChess home">DoBackChess</a>
     <nav class="main-nav" aria-label="Primary navigation">
       <button id="navPlay" class="nav-item">Play engines</button>
       <button id="navAnalysis" class="nav-item active">Analysis board</button>
@@ -59,19 +59,37 @@
   </header>
 
   <main>
-    <section class="landing hidden" id="hero" aria-hidden="true">
+    <section class="landing hidden" id="hero">
       <div class="landing-intro">
         <span class="eyebrow"><span></span> Personal chess study</span>
-        <h1>Train from your games.</h1>
-        <p>Import a public game history and practice the positions that matter.</p>
-        <form id="importForm" class="import-form">
-          <select id="gameSource" aria-label="Game source"><option value="chesscom">Chess.com</option><option value="lichess">Lichess</option><option value="pgn">PGN / notation</option></select>
-          <label class="username-field"><span id="sourcePrefix">chess.com/</span><input id="username" autocomplete="username" placeholder="username" required minlength="2" maxlength="30"></label>
-          <button class="primary-button" type="submit"><span>Build deck</span></button>
-        </form>
-        <div class="search-meta"><span id="searchScopeText">Every game from the last 7 days or the latest 20, whichever is larger</span><span id="heroError" class="inline-error" role="alert"></span></div>
+        <h1>Your chess study, in one place.</h1>
+        <p>Analyze a game, review every missed tactic, build a practice deck, or play a local engine. Choose where you want to begin.</p>
+        <div class="home-primary-actions">
+          <button type="button" class="primary-button" data-home-view="analysis">Analyze one game</button>
+          <button type="button" class="secondary-button" data-home-view="review">Review recent games</button>
+        </div>
       </div>
 
+      <div class="home-page-grid" aria-label="DoBackChess pages">
+        <button type="button" class="home-page-card featured" data-home-view="analysis"><span class="home-card-index">01</span><span><strong>Analysis board</strong><small>Import one game or position, run the engine, and inspect every mistake.</small></span><b>Open →</b></button>
+        <button type="button" class="home-page-card" data-home-view="play"><span class="home-card-index">02</span><span><strong>Play engines</strong><small>Play Stockfish or the Reckless browser alpha with optional material odds.</small></span><b>Open →</b></button>
+        <button type="button" class="home-page-card" data-home-view="review"><span class="home-card-index">03</span><span><strong>Review games</strong><small>Find recurring tactics and build puzzles from your latest 20–50 games.</small></span><b>Open →</b></button>
+        <button type="button" class="home-page-card" data-home-view="report"><span class="home-card-index">04</span><span><strong>Chess Report</strong><small>See recent accuracy, volume, and results in a focused summary.</small></span><b>Open →</b></button>
+        <button type="button" class="home-page-card" data-home-view="masters"><span class="home-card-index">05</span><span><strong>Master games</strong><small>Build study decks from verified grandmaster game histories.</small></span><b>Open →</b></button>
+        <button type="button" class="home-page-card" data-home-view="about"><span class="home-card-index">06</span><span><strong>About</strong><small>Read about the public alpha, local engines, and planned features.</small></span><b>Open →</b></button>
+      </div>
+
+      <div class="home-training-import">
+        <div><span class="panel-kicker">Start a training deck</span><h2>Practice positions from your own games</h2><p>Import public games or PGN notation and turn important missed chances into a review deck.</p></div>
+        <div class="home-training-form">
+          <form id="importForm" class="import-form">
+            <select id="gameSource" aria-label="Game source"><option value="chesscom">Chess.com</option><option value="lichess">Lichess</option><option value="pgn">PGN / notation</option></select>
+            <label class="username-field"><span id="sourcePrefix">chess.com/</span><input id="username" autocomplete="username" placeholder="username" required minlength="2" maxlength="30"></label>
+            <button class="primary-button" type="submit"><span>Build deck</span></button>
+          </form>
+          <div class="search-meta"><span id="searchScopeText">Every game from the last 7 days or the latest 20, whichever is larger</span><span id="heroError" class="inline-error" role="alert"></span></div>
+        </div>
+      </div>
     </section>
 
     <section id="mastersPage" class="masters-page hidden">
@@ -88,8 +106,8 @@
         <aside class="analysis-sidebar">
           <section id="analysisEditor" class="analysis-card hidden"><div class="analysis-card-heading"><span class="panel-kicker">Position editor</span><button id="analysisClearButton" class="text-button">Clear board</button></div><div id="analysisPalette" class="analysis-palette"></div><label>Side to move<select id="analysisTurn"><option value="w">White</option><option value="b">Black</option></select></label><label>FEN<div class="fen-row"><input id="analysisFen" spellcheck="false"><button id="analysisLoadFenButton" class="secondary-button">Set</button></div></label><p>Use the palette and board for visual editing. FEN gives full control of castling and en-passant rights.</p></section>
           <section class="analysis-card engine-analysis-card"><div class="analysis-card-heading"><span class="panel-kicker">Engine analysis</span><button id="analyzePositionButton" class="primary-button">Start engine</button></div><div class="analysis-evaluation"><strong id="analysisEngineEval">—</strong><span id="analysisEngineResult">Engine is paused.</span></div><div class="engine-line"><span>Best continuation</span><strong id="analysisEngineLine">—</strong></div><label>Promote pawns to<select id="analysisPromotion"><option value="q">Queen</option><option value="r">Rook</option><option value="b">Bishop</option><option value="n">Knight</option></select></label></section>
+          <section id="analysisInsights" class="analysis-card analysis-insights"><div class="analysis-card-heading"><span class="panel-kicker">Game tactic summary</span><span>chess_detect</span></div><p>Import or play a game, then choose <strong>Review game</strong>. Every detected tactic and costly mistake will be listed here and linked back to its board position.</p></section>
           <section class="analysis-card notation-analysis-card"><div class="analysis-card-heading notation-card-heading"><span class="panel-kicker">Move notation</span><button id="analysisAccuracyButton" class="text-button" disabled>Review game</button></div><div id="analysisAccuracySummary" class="accuracy-summary hidden"></div><div id="analysisAccuracyProgress" class="accuracy-progress hidden"><span></span></div><p id="analysisAccuracyNote" class="accuracy-note">Click any move to revisit that position. Review runs locally and finds missed tactics.</p><div id="analysisMoveExplanation" class="analysis-move-explanation"><span>Selected move</span><strong>Choose Review game for move-by-move explanations.</strong><p>After analysis, click any move to see the best move, evaluation loss, available tactic, and engine continuation.</p></div><div id="analysisNotation" class="analysis-notation"><p>Play moves or import PGN to build notation.</p></div></section>
-          <section id="analysisInsights" class="analysis-card analysis-insights"><div class="analysis-card-heading"><span class="panel-kicker">Missed-tactic review</span><span>chess_detect</span></div><p>Import or play a game, then choose <strong>Review game</strong>. Costly moves become practice positions and detected themes link to matching Lichess puzzle themes.</p></section>
         </aside>
       </div>
     </section>
@@ -229,6 +247,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
   <footer><span>DoBackChess</span><span>Static-first · Stockfish 18 and Reckless browser alpha run locally · Chess.com, Lichess, and PGN games</span></footer>
-  <script type="module" src="./app.js?v=26"></script>
+  <script type="module" src="./app.js?v=27"></script>
 </body>
 </html>

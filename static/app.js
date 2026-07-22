@@ -224,7 +224,10 @@ function hideMainViews() {
 }
 
 function goHome() {
-  showAnalysis();
+  document.body.classList.remove("puzzle-room", "analysis-room", "play-room");
+  hideMainViews();
+  $("#hero").classList.remove("hidden");
+  setActiveNav("home");
 }
 
 function showMasters() {
@@ -1682,7 +1685,18 @@ $("#gameSource").addEventListener("change", updateGameSourceUI);
 $("#reportSource").addEventListener("change", () => updateReportSourceUI("wrapped"));
 $("#tacticsReportSource").addEventListener("change", () => updateReportSourceUI("tactics"));
 
-$("#brandHome").addEventListener("click", event => { event.preventDefault(); showAnalysis(); });
+$("#brandHome").addEventListener("click", event => { event.preventDefault(); goHome(); });
+$$('[data-home-view]').forEach(button => button.addEventListener("click", () => {
+  const views = {
+    analysis: showAnalysis,
+    play: showPlay,
+    review: showTacticsReport,
+    report: showReport,
+    masters: showMasters,
+    about: showAbout,
+  };
+  views[button.dataset.homeView]?.();
+}));
 $("#navAnalysis").addEventListener("click", showAnalysis);
 $("#navPlay").addEventListener("click", showPlay);
 $("#navReview").addEventListener("click", showTacticsReport);
@@ -1763,4 +1777,4 @@ systemColorScheme?.addEventListener?.("change", () => {
   if ((state.prefs.siteTheme || "system") === "system") applyPreferences();
 });
 renderBoard();
-showAnalysis();
+goHome();

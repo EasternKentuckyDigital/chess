@@ -36,3 +36,21 @@ test("the training board stays in its full-size grid column while the eval bar i
   assert.match(css, /\.training-board-frame > \.eval-bar \{ grid-column:1; grid-row:1; \}/);
   assert.match(css, /\.training-board-frame > \.board-shell \{[^}]*grid-column:2; grid-row:1;/);
 });
+
+test("the home page exposes every major study surface and analysis review stays readable", async () => {
+  const [html, css, analysisBoard] = await Promise.all([
+    readFile(new URL("../static/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../static/styles.css", import.meta.url), "utf8"),
+    readFile(new URL("../static/lib/analysis-board.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(html, /href="#home" id="brandHome"/);
+  for (const view of ["analysis", "play", "review", "report", "masters", "about"]) {
+    assert.match(html, new RegExp(`data-home-view="${view}"`));
+  }
+  assert.match(css, /body\.analysis-room \{ overflow: auto; \}/);
+  assert.match(css, /grid-template-columns: minmax\(480px,1fr\) minmax\(460px,620px\)/);
+  assert.match(analysisBoard, /Choose a theme to see every missed move/);
+  assert.match(analysisBoard, /data-review-theme=/);
+  assert.match(analysisBoard, /data-review-ply=/);
+  assert.match(analysisBoard, /All costly moves/);
+});
