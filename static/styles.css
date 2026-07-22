@@ -74,8 +74,6 @@ button { color: inherit; }
 .brand { display: flex; align-items: center; gap: 9px; color: var(--fg-default); text-decoration: none; font-size: 16px; font-weight: 600; }
 .brand-mark { width: 32px; height: 32px; display: grid; place-items: center; color: #fff; background: var(--success-emphasis); border-radius: 6px; font-weight: 700; }
 .top-actions { display: flex; align-items: center; gap: 8px; }
-.engine-pill { display: flex; align-items: center; gap: 7px; color: var(--fg-muted); font-size: 12px; }
-.engine-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success-fg); }
 .header-button, .profile-button, .primary-button, .secondary-button { min-height: 32px; padding: 0 12px; border: 1px solid var(--button-border); border-radius: 6px; box-shadow: var(--shadow-button); background: var(--button-bg); color: var(--fg-default); font-size: 12px; font-weight: 600; cursor: pointer; }
 .header-button:hover, .profile-button:hover, .secondary-button:hover { background: var(--button-hover); border-color: var(--border-default); }
 .profile-button { display: flex; align-items: center; gap: 7px; padding-left: 4px; border-radius: 6px; }
@@ -237,7 +235,7 @@ footer { min-height:62px;padding:0 clamp(16px,3vw,40px);display:flex;align-items
   .answer-panel { grid-column:1/-1;width:100%;height:auto;min-height:360px; }.answer-state { min-height:360px;max-width:640px;margin:0 auto; }
 }
 @media (max-width:820px) {
-  .engine-pill { display:none; }.trainer { padding:22px 12px 55px; }.trainer-toolbar { align-items:flex-start;flex-direction:column; }.training-grid { grid-template-columns:1fr; }.context-panel { order:2;height:380px;min-height:0; }.board-area { order:1; }.answer-panel { order:3;grid-column:auto; }.board-shell { max-width:680px;margin:0 auto; }.board-message { max-width:680px;margin:0 auto; }
+  .trainer { padding:22px 12px 55px; }.trainer-toolbar { align-items:flex-start;flex-direction:column; }.training-grid { grid-template-columns:1fr; }.context-panel { order:2;height:380px;min-height:0; }.board-area { order:1; }.answer-panel { order:3;grid-column:auto; }.board-shell { max-width:680px;margin:0 auto; }.board-message { max-width:680px;margin:0 auto; }
 }
 @media (max-width:540px) {
   .topbar { height:58px;padding:0 10px; }.header-button { padding:0 8px; }.profile-button>span:last-child { display:none; }.hero { padding:75px 14px 55px; }.hero h1 { font-size:39px;letter-spacing:-1.5px; }.hero>p { font-size:14px; }.import-form { flex-direction:column; }.username-field { flex-basis:36px; }.trainer-toolbar h1 { font-size:21px; }.toolbar-actions { width:100%;flex-wrap:wrap; }.deck-stat { flex:1; }.toolbar-actions .secondary-button { width:100%; }.choice-grid { grid-template-columns:repeat(2,1fr); }.answer-state { padding:24px 18px; }footer { padding:16px;flex-direction:column;align-items:flex-start; }
@@ -540,6 +538,7 @@ body.play-room footer { display: none; }
 /* Personal chess report */
 .report-page { max-width: 1180px; padding-top: 0; }
 .report-hero { min-height: calc(100vh - 126px); display: grid; place-items: center; }
+#tacticsReportPage .report-hero { min-height: auto; padding: clamp(64px,10vh,96px) 0 54px; }
 .report-intro { width: 100%; text-align: center; }
 .report-intro h1 { margin: 10px 0 9px; font-size: clamp(34px,4vw,50px); line-height: 1.05; letter-spacing: -1.8px; font-weight: 600; }
 .report-intro > p { max-width: 700px; margin: 0 auto 18px; color: var(--fg-muted); font-size: 14px; }
@@ -552,6 +551,7 @@ body.play-room footer { display: none; }
 .analysis-stop-button { margin-left:auto; flex:0 0 auto; min-height:30px; padding:0 10px; color:var(--danger-fg); }
 .report-summary-cards { margin-top: 16px; }
 .report-results { width: min(1080px,100%); margin: 0 auto; padding-bottom: 72px; }
+#tacticsReportResults { scroll-margin-top: 24px; }
 .wrapped-only-results { padding-top: 34px; }
 .wrapped-only-results .chess-wrapped { margin-bottom: 0; }
 .report-summary { margin: 34px 0; display: grid; grid-template-columns: repeat(3,1fr); overflow: hidden; border: 1px solid var(--border-default); border-radius: 9px; }

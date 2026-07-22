@@ -29,6 +29,8 @@ test("the website exposes focused Play, Analysis, Review, and restored About rou
   assert.match(html, /id="playPage"/);
   assert.match(html, /id="tacticsReportPage"/);
   assert.match(html, /Find the patterns behind your mistakes\./);
+  assert.doesNotMatch(html, /Import a Chess\.com or Lichess account/);
+  assert.doesNotMatch(html, /id="engineName"|Stockfish loads in your browser/);
   assert.match(html, /id="reviewGameLimit"/);
   assert.match(html, /20 games/);
   assert.match(html, /50 games/);
@@ -47,6 +49,9 @@ test("the website exposes focused Play, Analysis, Review, and restored About rou
   assert.match(app, /scope: "latest100"/);
   assert.match(app, /generalAnalysisBoard\.analyzePgn/);
   assert.match(app, /navAbout/);
+  assert.match(app, /scrollToReportResults\(ui\.results\)/);
+  assert.match(app, /scrollIntoView\(\{ behavior:/);
+  assert.doesNotMatch(app, /#engineName/);
   assert.match(app, /chess-report\.js\?v=25/);
   const chessReportSource = await readFile(new URL("../static/lib/chess-report.js", import.meta.url), "utf8");
   assert.match(chessReportSource, /game-import\.js\?v=25/);

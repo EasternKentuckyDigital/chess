@@ -405,6 +405,15 @@ const REPORT_SURFACES = Object.freeze({
 
 function reportSurface(mode) { return REPORT_SURFACES[mode] || REPORT_SURFACES.wrapped; }
 
+function scrollToReportResults(selector) {
+  const results = $(selector);
+  if (!results) return;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    results.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+  }));
+}
+
 async function loadSavedReport(mode) {
   const ui = reportSurface(mode);
   const username = $(ui.username).value.trim();
@@ -438,6 +447,7 @@ async function runReportAnalysis({ mode = "wrapped", username, source, importedG
   const controller = new AbortController();
   state.reportAbortController = controller;
   state.reportAbortMode = mode;
+  let completed = false;
   if (button) button.disabled = true;
   $(ui.error).textContent = "";
   $(ui.results).classList.add("hidden");
@@ -481,6 +491,7 @@ async function runReportAnalysis({ mode = "wrapped", username, source, importedG
     report.retainedGames = retained;
     saveJson(reportKey(mode, source, username), report);
     (mode === "tactics" ? renderTacticsReport : renderChessReport)(report);
+    completed = true;
   } catch (error) {
     if (controller.signal.aborted || isEngineCancellation(error)) showToast(`${ui.label} analysis stopped.`);
     else $(ui.error).textContent = error.message || `The ${ui.label} could not be completed.`;
@@ -491,6 +502,7 @@ async function runReportAnalysis({ mode = "wrapped", username, source, importedG
       state.reportAbortController = null;
       state.reportAbortMode = null;
     }
+    if (completed) scrollToReportResults(ui.results);
   }
 }
 
@@ -513,7 +525,7 @@ function openTournamentImport(target) {
   $("#trainingPgnDescription").textContent = isWrapped
     ? "Upload one or more real tournament games, or paste complete PGN/SAN notation for a private recent-form summary."
     : isTactics
-      ? "Upload one or more games, or paste complete PGN/SAN notation to review mistakes, detect themes, and create practice positions."
+      ? "Upload games or paste complete PGN / move notation."
       : "Upload one or more real tournament games, or paste PGN/SAN notation such as 1. e4 e5 2. Nf3 Nc6.";
   $("#loadTrainingPgnButton").textContent = isWrapped ? "Build Chess Report" : isTactics ? "Review games" : "Build training deck";
   $("#trainingPgnError").textContent = "";
@@ -580,7 +592,7 @@ function renderTacticsReport(report) {
   $("#tacticsReportMistakes").textContent = report.mistakes;
   $("#reviewPuzzleCount").textContent = report.puzzles?.length || 0;
   $("#practiceReviewPuzzles").disabled = !report.puzzles?.length;
-  $("#tacticsReportRecommendations").innerHTML = report.recommendations.length ? report.recommendations.map((item, index) => `<article class="report-card ${index === 0 ? "top-theme" : ""}"><span class="report-count">${item.count}</span><div><span class="panel-kicker">${index === 0 ? "Top priority" : "Practice theme"}</span><h3>${escapeHtml(item.label)}</h3><p>${escapeHtml(item.advice)}</p><a href="${item.url}" target="_blank" rel="noreferrer">Practice tagged ${escapeHtml(item.label.toLowerCase())} puzzles on Lichess ↗</a></div></article>`).join("") : `<p class="report-empty">No named chess_detect tactic cleared the report threshold. Your own large-loss positions are still available above.</p>`;
+  $("#tacticsReportRecommendations").innerHTML = report.recommendations.length ? report.recommendations.map((item, index) => `<article class="report-card ${index === 0 ? "top-theme" : ""}"><span class="report-count">${item.count}</span><div><span class="panel-kicker">${index === 0 ? "Top priority" : "Practice theme"}</span><h3>${escapeHtml(item.label)}</h3><p>${escapeHtml(item.advice)}</p><a href="${item.url}" target="_blank" rel="noreferrer">Practice tagged ${escapeHtml(item.label.toLowerCase())} puzzles on Lichess ↗</a></div></article>`).join("") : `<p class="report-empty">No named tactic cleared the report threshold. Your own large-loss positions are still available above.</p>`;
   $("#tacticsReportExamples").innerHTML = report.examples.length ? report.examples.map(example => `<article><span class="category">${escapeHtml(example.label)}</span><strong>vs ${escapeHtml(example.opponent)}</strong><small>${escapeHtml(example.date)} · ${escapeHtml(example.consequence || `lost ${(example.loss / 100).toFixed(1)} pawns`)}</small><p>${escapeHtml(example.tagline || "Concrete best move")}</p><code>${escapeHtml(example.fen)}</code></article>`).join("") : `<p class="report-empty">No costly examples were found.</p>`;
   $("#tacticsReportResults").classList.remove("hidden");
 }
@@ -696,7 +708,6 @@ async function buildDeck(force = false) {
       updateStats();
       if (!state.current && state.puzzles.length) await showNextPuzzle();
     }
-    $("#engineName").textContent = state.analysisCancelled ? `${provider.name} · analysis stopped` : `${provider.name} · analysis ready`;
     updateStats();
     if (!state.current && state.puzzles.length) await showNextPuzzle();
     else if (!state.puzzles.length) showAnswer("empty");
@@ -1235,8 +1246,6 @@ function applyPreferences() {
   const level = analysisLimits(state.prefs.analysisLevel);
   $("#analysisLevelNote").textContent = `${level.label}: Stockfish depth ${level.stockfishDepth} · Reckless ${level.recklessNodes.toLocaleString()} nodes. ${level.detail}`;
   $("#reportGameLimitNote").textContent = `${state.prefs.reportGameLimit} games per Chess Report or Tactics Report. Training still includes every game from the last 7 days when that is larger.`;
-  const provider = engineDescriptor(state.prefs.engineProvider);
-  if (!state.analyzing) $("#engineName").textContent = `${provider.name} runs fully in your browser`;
   if (state.puzzleChess) renderBoard();
   generalAnalysisBoard?.refresh();
   enginePlay?.refresh();
@@ -1663,9 +1672,9 @@ function updateReportSourceUI(mode = "wrapped") {
   $(ui.username).required = !isPgn;
   $(`${ui.form} button`).textContent = isPgn ? "Upload games" : mode === "tactics" ? "Review games" : "Build Chess Report";
   const scope = mode === "tactics"
-    ? `Your latest ${state.prefs.reportGameLimit} selected games, with the import filled from the last 7 days first`
+    ? `Latest ${state.prefs.reportGameLimit} games`
     : `Your latest ${state.prefs.reportGameLimit} public games, or every available game when fewer exist`;
-  $(ui.scope).textContent = isPgn ? "Upload a .pgn/.txt file or paste tournament move notation" : scope;
+  $(ui.scope).textContent = isPgn ? "Upload PGN or paste notation" : scope;
   $(ui.error).textContent = "";
 }
 

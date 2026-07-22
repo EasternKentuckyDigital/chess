@@ -41,7 +41,7 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=25">
+  <link rel="stylesheet" href="./styles.css?v=26">
 </head>
 <body>
   <header class="topbar">
@@ -53,7 +53,6 @@
       <button id="navAbout" class="nav-item">About</button>
     </nav>
     <div class="top-actions">
-      <span class="engine-pill"><span class="engine-dot"></span><span id="engineName">Stockfish loads in your browser</span></span>
       <button id="settingsButton" class="header-button">Settings</button>
       <button id="profileButton" class="profile-button"><span id="profileName">Guest</span></button>
     </div>
@@ -123,14 +122,13 @@
     <section id="tacticsReportPage" class="report-page hidden">
       <div class="report-hero">
         <div class="report-intro">
-          <span class="eyebrow"><span></span> 20–50 game review</span><h1>Find the patterns behind your mistakes.</h1><p>Import a Chess.com or Lichess account, or upload a PGN collection. Stockfish measures every game; chess_detect tags missed tactics, recommends matching Lichess themes, and creates puzzles from your own positions.</p>
+          <span class="eyebrow"><span></span> 20–50 game review</span><h1>Find the patterns behind your mistakes.</h1>
           <form id="tacticsReportForm" class="report-form"><select id="tacticsReportSource" aria-label="Review game source"><option value="chesscom">Chess.com</option><option value="lichess">Lichess</option><option value="pgn">PGN / notation</option></select><input id="tacticsReportUsername" required minlength="2" maxlength="30" placeholder="username" autocomplete="username"><select id="reviewGameLimit" aria-label="Games to review"><option value="20">20 games</option><option value="35">35 games</option><option value="50">50 games</option></select><button class="primary-button" type="submit">Review games</button></form>
-          <div class="search-meta report-search-meta"><span id="tacticsReportScopeText">Your latest 20 selected games, with the import filled from the last 7 days first</span><span id="tacticsReportError" class="inline-error" role="alert"></span></div>
+          <div class="search-meta report-search-meta"><span id="tacticsReportScopeText">Latest 20 games</span><span id="tacticsReportError" class="inline-error" role="alert"></span></div>
           <div id="tacticsReportProgress" class="report-progress hidden"><div><span class="loader"></span><strong id="tacticsReportProgressText">Preparing Stockfish…</strong><button id="stopTacticsReportButton" class="secondary-button analysis-stop-button" type="button">Stop analysis</button></div><div class="progress-track"><span id="tacticsReportProgressBar"></span></div></div>
-          <div class="tier-summary report-summary-cards"><article><span>Private</span><strong>Local engine review</strong><small>Your games and positions stay in this browser.</small></article><article><span>Actionable</span><strong>Two kinds of practice</strong><small>Train your own missed positions or open tagged Lichess puzzles.</small></article></div>
         </div>
       </div>
-      <div id="tacticsReportResults" class="report-results hidden"><section class="report-summary review-summary"><div><strong id="tacticsReportGames">0</strong><span>games</span></div><div><strong id="tacticsReportAccuracy">—</strong><span>average accuracy</span></div><div><strong id="tacticsReportPositions">0</strong><span>positions checked</span></div><div><strong id="tacticsReportMistakes">0</strong><span>costly mistakes</span></div></section><div class="review-practice-callout"><div><span class="panel-kicker">Your games become puzzles</span><h2><span id="reviewPuzzleCount">0</span> important positions ready to practice</h2><p>These use the same large-loss and missed-win rules as the original trainer, now labeled by chess_detect.</p></div><button id="practiceReviewPuzzles" class="primary-button" type="button">Practice my positions</button></div><div class="section-heading"><div><span class="panel-kicker">Recommended on Lichess</span><h2>Tagged puzzles for the tactics you missed</h2></div></div><div id="tacticsReportRecommendations" class="report-grid"></div><div class="section-heading report-examples-heading"><div><span class="panel-kicker">Positions from your games</span><h2>Highest-impact examples</h2></div></div><div id="tacticsReportExamples" class="report-examples"></div></div>
+      <div id="tacticsReportResults" class="report-results hidden"><section class="report-summary review-summary"><div><strong id="tacticsReportGames">0</strong><span>games</span></div><div><strong id="tacticsReportAccuracy">—</strong><span>average accuracy</span></div><div><strong id="tacticsReportPositions">0</strong><span>positions checked</span></div><div><strong id="tacticsReportMistakes">0</strong><span>costly mistakes</span></div></section><div class="review-practice-callout"><div><span class="panel-kicker">Your games become puzzles</span><h2><span id="reviewPuzzleCount">0</span> important positions ready to practice</h2><p>Built from your largest missed chances and tactical errors.</p></div><button id="practiceReviewPuzzles" class="primary-button" type="button">Practice my positions</button></div><div class="section-heading"><div><span class="panel-kicker">Recommended on Lichess</span><h2>Tagged puzzles for the tactics you missed</h2></div></div><div id="tacticsReportRecommendations" class="report-grid"></div><div class="section-heading report-examples-heading"><div><span class="panel-kicker">Positions from your games</span><h2>Highest-impact examples</h2></div></div><div id="tacticsReportExamples" class="report-examples"></div></div>
     </section>
 
     <section id="aboutPage" class="about-page hidden">
@@ -231,6 +229,6 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
   <footer><span>DoBackChess</span><span>Static-first · Stockfish 18 and Reckless browser alpha run locally · Chess.com, Lichess, and PGN games</span></footer>
-  <script type="module" src="./app.js?v=25"></script>
+  <script type="module" src="./app.js?v=26"></script>
 </body>
 </html>
