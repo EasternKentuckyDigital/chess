@@ -78,6 +78,7 @@ function pvToSan(fen, pv) {
 
 export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisLevel = () => "balanced", onSound = () => {}, onPracticePuzzles = () => {} }) {
   const $ = selector => document.querySelector(selector);
+  const initialReviewColor = $("#analysisPerspective").value === "b" ? "b" : "w";
   const state = {
     chess: new Chess(),
     rootFen: new Chess().fen(),
@@ -85,12 +86,12 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     legalMoves: [],
     editorPiece: "wQ",
     editing: false,
-    flipped: false,
+    flipped: initialReviewColor === "b",
     moves: [],
     cursor: 0,
     headers: {},
     sourceGame: null,
-    reviewColor: $("#analysisPerspective").value === "b" ? "b" : "w",
+    reviewColor: initialReviewColor,
     moveAnalyses: [],
     findings: [],
     puzzles: [],
@@ -251,6 +252,10 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
     $("#analysisBoard").querySelectorAll(".piece-image").forEach(piece => piece.addEventListener("pointerdown", startPointerDrag));
     $("#analysisFen").value = state.chess.fen();
     $("#analysisTurn").value = state.chess.turn();
+    const turn = state.chess.turn();
+    $("#analysisTurnIndicator").textContent = `${turn === "b" ? "Black" : "White"} to move`;
+    $("#analysisTurnIndicator").classList.toggle("black", turn === "b");
+    $("#analysisTurnIndicator").classList.toggle("white", turn === "w");
     const saved = state.positionAnalyses.get(state.cursor);
     renderEvaluationBar($("#analysisEvalBar"), saved?.result || null, saved?.fen || state.chess.fen(), state.flipped);
     renderNotation();
@@ -573,6 +578,7 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
       if (sourceGame?.playerColor === "black" || sourceGame?.playerColor === "b") state.reviewColor = "b";
       else if (sourceGame?.playerColor === "white" || sourceGame?.playerColor === "w") state.reviewColor = "w";
       $("#analysisPerspective").value = state.reviewColor;
+      state.flipped = state.reviewColor === "b";
       clearGameAnalysis();
       state.chess = loaded;
       resetMoveSelection();
@@ -877,6 +883,8 @@ export function initAnalysisBoard({ getPieceSet, getEngineProvider, getAnalysisL
   $("#analysisLastMoveButton").addEventListener("click", () => setCursor(state.moves.length));
   $("#analysisPerspective").addEventListener("change", event => {
     state.reviewColor = event.currentTarget.value === "b" ? "b" : "w";
+    state.flipped = state.reviewColor === "b";
+    renderBoard(state.cursor ? state.moves[state.cursor - 1]?.uci : null);
     renderInsights();
   });
   $("#analysisClearButton").addEventListener("click", () => {

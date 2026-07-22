@@ -5,7 +5,7 @@ import { activateDeviceProfile, clearProfileSession, continueAsGuest, listDevice
 import { classifyPuzzleEligibility } from "./lib/puzzle-rules.js";
 import { createBoardArrows } from "./lib/board-arrows.js";
 import { FEATURED_MASTERS, fetchGrandmasterHandles } from "./lib/masters.js";
-import { initAnalysisBoard } from "./lib/analysis-board.js?v=26";
+import { initAnalysisBoard } from "./lib/analysis-board.js?v=27";
 import { cloudConfigured, createEmailAccount, initCloudSession, loadCloudJson, queueCloudJson, sendEmailPasswordReset, signInOrLink, signInWithEmail, signOutCloud } from "./lib/auth-sync.js";
 import { initEnginePlay } from "./lib/engine-play.js?v=21";
 import { buildChessReport } from "./lib/chess-report.js?v=25";
@@ -861,7 +861,7 @@ async function loadPuzzle(puzzle) {
   state.legalMoves = [];
   state.puzzleChess = new Chess(puzzle.fen);
   $("#puzzleEvalBar").classList.add("hidden");
-  renderEvaluationBar($("#puzzleEvalBar"), null, puzzle.fen, puzzle.game.playerColor === "black");
+  renderEvaluationBar($("#puzzleEvalBar"), null, puzzle.fen, playerIsBlack(puzzle.game));
   clearArrows();
   renderBoard();
   showAnswer("puzzle");
@@ -892,10 +892,14 @@ function parseFen(fen) {
   return map;
 }
 
+function playerIsBlack(game) {
+  return game?.playerColor === "black" || game?.playerColor === "b";
+}
+
 function renderBoard(lastMove = null) {
   const fen = state.puzzleChess?.fen() || "8/8/8/8/8/8/8/8 w - - 0 1";
   const pieces = parseFen(fen);
-  const flipped = state.current?.game.playerColor === "black";
+  const flipped = playerIsBlack(state.current?.game);
   const files = flipped ? ["h","g","f","e","d","c","b","a"] : ["a","b","c","d","e","f","g","h"];
   const ranks = flipped ? [1,2,3,4,5,6,7,8] : [8,7,6,5,4,3,2,1];
   const legalTargets = new Map(state.legalMoves.map(move => [move.to, move]));
@@ -916,6 +920,15 @@ function renderBoard(lastMove = null) {
   $("#board").innerHTML = html.join("");
   $$("#board .square").forEach(square => square.addEventListener("click", () => handleSquare(square.dataset.square)));
   $$("#board .piece-image").forEach(piece => piece.addEventListener("pointerdown", startPointerDrag));
+  const turnIndicator = $("#puzzleTurnIndicator");
+  const turn = state.puzzleChess?.turn();
+  turnIndicator.classList.toggle("hidden", !turn);
+  turnIndicator.parentElement.classList.toggle("hidden", !turn);
+  if (turn) {
+    turnIndicator.textContent = `${turn === "b" ? "Black" : "White"} to move`;
+    turnIndicator.classList.toggle("black", turn === "b");
+    turnIndicator.classList.toggle("white", turn === "w");
+  }
 }
 
 function handleSquare(square) {
@@ -1096,7 +1109,7 @@ function revealSolution(correct) {
   if (bestInfo) state.puzzleChess.move(bestInfo);
   renderBoard(state.current.best);
   $("#puzzleEvalBar").classList.remove("hidden");
-  renderEvaluationBar($("#puzzleEvalBar"), state.current.bestResult, state.current.fen, state.current.game.playerColor === "black");
+  renderEvaluationBar($("#puzzleEvalBar"), state.current.bestResult, state.current.fen, playerIsBlack(state.current.game));
   clearArrows();
   drawArrow(state.current.best, "#2d7a55");
   setBoardMessage(correct ? "Correct. Review the engine line, then grade the position." : "Solution shown. Review it, then grade the position.", "correct");
@@ -1771,7 +1784,7 @@ trainingArrowLayer = createBoardArrows({
   svg: $("#arrows"),
   squareSelector: ".square",
   squareData: "square",
-  isFlipped: () => state.current?.game.playerColor === "black",
+  isFlipped: () => playerIsBlack(state.current?.game),
 });
 systemColorScheme?.addEventListener?.("change", () => {
   if ((state.prefs.siteTheme || "system") === "system") applyPreferences();

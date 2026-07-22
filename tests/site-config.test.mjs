@@ -63,6 +63,8 @@ test("the home page exposes every major study surface and analysis review stays 
   assert.match(html, /class="analysis-sidebar analysis-main-panel"/);
   assert.match(html, /class="analysis-card analysis-insights analysis-tactics-column"/);
   assert.match(html, /id="analysisPerspective"/);
+  assert.match(html, /id="analysisTurnIndicator"[^>]*>White to move</);
+  assert.match(html, /id="puzzleTurnIndicator"[^>]*>White to move</);
   for (const id of ["analysisFirstMoveButton", "analysisPreviousMoveButton", "analysisNextMoveButton", "analysisLastMoveButton"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
@@ -70,10 +72,26 @@ test("the home page exposes every major study surface and analysis review stays 
   assert.match(analysisBoard, /Used against you/);
   assert.match(analysisBoard, /Every costly move/);
   assert.match(analysisBoard, /sourceGame\?\.playerColor === "black"/);
+  assert.match(analysisBoard, /state\.flipped = state\.reviewColor === "b"/);
+  assert.match(analysisBoard, /Black" : "White"} to move/);
   assert.match(analysisBoard, /Forced mating line/);
   assert.match(analysisBoard, /Practice tagged .* puzzles on Lichess/);
   assert.match(analysisBoard, /data-review-theme=/);
   assert.match(analysisBoard, /data-review-ply=/);
   assert.match(analysisBoard, /analysisNextMoveButton/);
   assert.doesNotMatch(analysisBoard, /scrollIntoView/);
+});
+
+test("analysis and puzzle boards face the reviewed player and show whose turn it is", async () => {
+  const [app, analysisBoard, css] = await Promise.all([
+    readFile(new URL("../static/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../static/lib/analysis-board.js", import.meta.url), "utf8"),
+    readFile(new URL("../static/styles.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(app, /function playerIsBlack\(game\)/);
+  assert.match(app, /const flipped = playerIsBlack\(state\.current\?\.game\)/);
+  assert.match(app, /puzzleTurnIndicator/);
+  assert.match(analysisBoard, /flipped: initialReviewColor === "b"/);
+  assert.match(analysisBoard, /state\.flipped = state\.reviewColor === "b"/);
+  assert.match(css, /\.board-turn-row \{[^}]*justify-content: flex-end;/);
 });
