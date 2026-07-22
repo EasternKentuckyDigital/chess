@@ -37,6 +37,17 @@ test("the training board stays in its full-size grid column while the eval bar i
   assert.match(css, /\.training-board-frame > \.board-shell \{[^}]*grid-column:2; grid-row:1;/);
 });
 
+test("board shells resize as one square instead of letting tiles drive layout", async () => {
+  const css = await readFile(new URL("../static/styles.css", import.meta.url), "utf8");
+  assert.match(css, /\.board-shell \{[^}]*aspect-ratio: 1 \/ 1;[^}]*contain: strict;/);
+  assert.match(css, /\.board \{[^}]*position: absolute;[^}]*inset: 0;/);
+  assert.match(css, /\.square \{[^}]*aspect-ratio: auto;/);
+  assert.match(css, /\.analysis-board-frame \{[^}]*width: min\(100%,clamp\(280px,calc\(100vh - 132px\),800px\)\)/);
+  assert.match(css, /\.play-board-shell \{[^}]*width: min\(100%,clamp\(280px,calc\(100vh - 148px\),684px\)\);[^}]*height: auto;/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.analysis-board-frame \{ width: min\(100%,clamp\(260px,calc\(100vh - 150px\),680px\)\)/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.play-board-shell \{ width: min\(100%,clamp\(260px,calc\(100vh - 166px\),680px\)\)/);
+});
+
 test("the home page exposes every major study surface and analysis review stays readable", async () => {
   const [html, css, analysisBoard] = await Promise.all([
     readFile(new URL("../static/index.html", import.meta.url), "utf8"),

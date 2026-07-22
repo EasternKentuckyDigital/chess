@@ -144,9 +144,9 @@ button { color: inherit; }
 .puzzle-context h2, .game-context strong, .game-context span, .notation-heading h3, .notation-footer span, .notation-footer a { max-width: 100%; overflow: visible; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; word-break: break-word; }
 
 .board-area { min-width: 0; background: transparent; }
-.board-shell { width: 100%; max-width: 720px; aspect-ratio: 1; position: relative; overflow: hidden; border-radius: 3px; box-shadow: 0 1px 3px rgba(31,35,40,.18), 0 8px 24px rgba(31,35,40,.08); contain: layout paint; }
-.board { width: 100%; height: 100%; display: grid; grid-template: repeat(8,minmax(0,1fr))/repeat(8,minmax(0,1fr)); }
-.square { min-width: 0; min-height: 0; width: 100%; height: 100%; aspect-ratio: 1; position: relative; display: grid; place-items: center; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: var(--board-light); cursor: pointer; }
+.board-shell { width: 100%; max-width: 720px; aspect-ratio: 1 / 1; position: relative; overflow: hidden; border-radius: 3px; box-shadow: 0 1px 3px rgba(31,35,40,.18), 0 8px 24px rgba(31,35,40,.08); contain: strict; }
+.board { position: absolute; inset: 0; width: 100%; height: 100%; display: grid; grid-template: repeat(8,minmax(0,1fr))/repeat(8,minmax(0,1fr)); }
+.square { min-width: 0; min-height: 0; width: 100%; height: 100%; aspect-ratio: auto; position: relative; display: grid; place-items: center; padding: 0; overflow: hidden; border: 0; border-radius: 0; background: var(--board-light); cursor: pointer; }
 .square.dark { background: var(--board-dark); }
 .square.last::after, .square.selected::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .square.last::after { background: rgba(246,220,65,.42); }
@@ -423,12 +423,12 @@ body.analysis-room footer { display: none; }
 .analysis-toolbar-primary { min-height: 38px; margin: 0 auto 10px; align-items: center; justify-content: center; }
 .analysis-workspace { min-height: 0; display: grid; grid-template-columns: minmax(480px,1fr) minmax(460px,620px); justify-content: center; align-items: start; gap: clamp(22px,3vw,48px); }
 .analysis-board-column { min-width: 0; min-height: 0; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
-.analysis-board-frame { width: min(100%,800px); height: auto; max-width: 100%; max-height: none; min-height: 0; display: flex; align-items: stretch; justify-content: center; gap: 8px; }
+.analysis-board-frame { width: min(100%,clamp(280px,calc(100vh - 132px),800px)); height: auto; max-width: 100%; max-height: none; min-height: 0; display: flex; align-items: stretch; justify-content: center; gap: 8px; }
 .analysis-board-frame .analysis-board-shell { width: calc(100% - 34px); height: auto; max-width: calc(100% - 34px); max-height: none; }
 .analysis-board-shell { width: auto; height: 100%; max-width: 100%; max-height: 720px; flex: 0 0 auto; aspect-ratio: 1; overflow: hidden; border: 0; border-radius: 3px; background: var(--bg-muted); box-shadow: 0 1px 3px rgba(31,35,40,.18),0 8px 24px rgba(31,35,40,.08); }
 .analysis-board-column > .inline-error { max-width: calc(100% - 20px); margin: 0; padding: 5px 8px; position: absolute; z-index: 5; bottom: 8px; border-radius: 5px; background: var(--bg-default); box-shadow: var(--shadow-overlay); }
 .analysis-board-column > .inline-error:empty { display: none; }
-.analysis-board { width: 100%; height: 100%; aspect-ratio: auto; grid-template: repeat(8,minmax(0,1fr))/repeat(8,minmax(0,1fr)); }
+.analysis-board { width: 100%; height: 100%; grid-template: repeat(8,minmax(0,1fr))/repeat(8,minmax(0,1fr)); }
 .analysis-square { min-width: 0; min-height: 0; width: 100%; height: 100%; }
 .analysis-sidebar { min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: visible; }
 .analysis-card { padding: 18px; border: 1px solid var(--border-default); border-radius: 10px; background: var(--bg-default); box-shadow: 0 1px 0 rgba(31,35,40,.04); }
@@ -556,7 +556,7 @@ body.play-room footer { display: none; }
 .play-page { height: calc(100vh - 64px); min-height: 0; padding: 12px clamp(18px,3vw,42px) 24px; overflow: hidden; }
 .play-workspace { height: calc(100% - 48px); }
 .play-board-column { justify-content: flex-start; }
-.play-board-shell { height: calc(100% - 36px); max-height: 684px; }
+.play-board-shell { width: min(100%,clamp(280px,calc(100vh - 148px),684px)); height: auto; max-width: 684px; max-height: none; }
 .play-board-message { width: min(100%,684px); flex: 0 0 36px; margin: 0 auto; padding-top: 8px; }
 .play-sidebar { grid-template-rows: auto auto minmax(0,1fr); }
 .play-sidebar .analysis-card { display: grid; gap: 8px; }
@@ -655,7 +655,7 @@ body.play-room footer { display: none; }
   body.analysis-room { overflow: auto; }
   .analysis-page { height: auto; min-height: calc(100vh - 64px); overflow: visible; }
   .analysis-workspace { grid-template-columns: 1fr; }
-  .analysis-board-frame { width: min(100%,760px); }
+  .analysis-board-frame { width: min(100%,clamp(280px,calc(100vh - 132px),760px)); }
   .analysis-sidebar { height: auto; overflow: visible; }
   .home-training-import { grid-template-columns: 1fr; }
   .play-workspace { grid-template-columns: minmax(300px,1fr) minmax(245px,300px); }
@@ -704,9 +704,9 @@ body.play-room footer { display: none; }
   .analysis-page, .play-page { height: auto; min-height: calc(100vh - 64px); overflow: visible; }
   .analysis-heading { align-items: flex-start; flex-direction: column; }
   .analysis-workspace, .play-workspace { height: auto; grid-template-columns: 1fr; }
-  .analysis-board-frame { width: min(100%,680px); height: auto; max-height: none; }
+  .analysis-board-frame { width: min(100%,clamp(260px,calc(100vh - 150px),680px)); height: auto; max-height: none; }
   .analysis-board-frame .analysis-board-shell { width: calc(100% - 34px); height: auto; max-width: none; max-height: none; }
-  .play-board-shell { width: min(100%,680px); height: auto; max-height: none; }
+  .play-board-shell { width: min(100%,clamp(260px,calc(100vh - 166px),680px)); height: auto; max-height: none; }
   .analysis-sidebar, .play-sidebar { height: auto; overflow: visible; }
   .analysis-sidebar { grid-template-rows: auto auto auto; }
   .analysis-insights { max-height: none; }
